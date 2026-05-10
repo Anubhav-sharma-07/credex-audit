@@ -34,9 +34,8 @@ Do not use bullet points. Write in second person (you/your).`;
     return NextResponse.json({ summary });
   } catch (error) {
     console.error("Error generating summary:", error);
-    // Fallback summary if API fails
     return NextResponse.json({
-      summary: `Your AI spend audit is complete. We identified potential savings of $${body?.totalMonthlySavings || 0}/month across your tool stack. Review the per-tool breakdown above for specific recommendations. The biggest opportunity is optimizing your plan selection based on your team size and actual usage patterns.`,
+      summary: "Your AI spend audit is complete. Review the per-tool breakdown above for specific recommendations. The biggest opportunity is optimizing your plan selection based on your team size and actual usage patterns.",
     });
-  }
-}
+  } 
+}  

@@ -39,12 +39,17 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        setForm(parsed.form);
+        const uniqueTools = Array.from(
+          new Map(parsed.form.tools.map((t: any) => [t.tool, t])).values()
+        );
+        setForm({ ...parsed.form, tools: uniqueTools as any });
         setActiveTools(new Set(parsed.activeTools));
       }
-    } catch {}
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
   }, []);
-
+  
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -62,14 +67,19 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
         setForm((f) => ({ ...f, tools: f.tools.filter((t) => t.tool !== tool) }));
       } else {
         next.add(tool);
-        setForm((f) => ({
-          ...f,
-          tools: [...f.tools, { tool, plan: TOOL_PLANS[tool][1] ?? TOOL_PLANS[tool][0], seats: 1, monthlySpend: 0 }],
-        }));
+        setForm((f) => {
+          const alreadyExists = f.tools.some((t) => t.tool === tool);
+          if (alreadyExists) return f;
+          return {
+            ...f,
+            tools: [...f.tools, { tool, plan: TOOL_PLANS[tool][1] ?? TOOL_PLANS[tool][0], seats: 1, monthlySpend: 0 }],
+          };
+        });
       }
       return next;
     });
   }
+
 
   function updateToolEntry(tool: ToolName, field: keyof ToolEntry, value: string | number) {
     setForm((f) => ({

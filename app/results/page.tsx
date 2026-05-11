@@ -20,7 +20,6 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         .select("*")
         .eq("id", params.id)
         .single();
-
       if (error) console.error(error);
       else setAudit(data);
       setLoading(false);
@@ -52,7 +51,6 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         <div className="bg-white rounded-xl shadow p-8 mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Your AI Spend Audit</h1>
           <p className="text-gray-500 mb-6">Team size: {audit.team_size} · Use case: {audit.use_case}</p>
-
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-gray-50 rounded-lg p-4 text-center">
               <p className="text-sm text-gray-500">Monthly Spend</p>
@@ -67,14 +65,12 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
               <p className="text-2xl font-bold text-green-600">${audit.total_annual_savings}</p>
             </div>
           </div>
-
           {audit.summary && (
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <h2 className="font-semibold text-blue-900 mb-2">AI Summary</h2>
               <p className="text-blue-800 text-sm">{audit.summary}</p>
             </div>
           )}
-
           <button
             onClick={copyLink}
             className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-700 transition"

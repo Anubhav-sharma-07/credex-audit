@@ -2,30 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { useParams } from "next/navigation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function ResultsPage({ params }: { params: { id: string } }) {
+export default function ResultsPage() {
+  const params = useParams();
+  const id = params?.id as string;
   const [audit, setAudit] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
     async function loadAudit() {
       const { data, error } = await supabase
         .from("audits")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", id)
         .single();
       if (error) console.error(error);
       else setAudit(data);
       setLoading(false);
     }
     loadAudit();
-  }, [params.id]);
+  }, [id]);
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.href);

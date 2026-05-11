@@ -28,3 +28,31 @@ AuditResults component had repeated paste errors — fixed by using Cursor AI to
 
 **Plan for tomorrow:**
 Add shareable URLs for each audit. Write all required markdown files (ARCHITECTURE.md, REFLECTION.md, TESTS.md, GTM.md, ECONOMICS.md, PRICING_DATA.md, PROMPTS.md, LANDING_COPY.md, METRICS.md). Set up GitHub Actions CI. Do user interviews.
+
+## Day 3 — 2026-05-12
+
+### What I built
+- Fixed AI summary API route on Vercel (routes were in `src/app/api/` but Next.js was looking in `app/api/`)
+- Added shareable URLs — audit results now saved to Supabase and redirected to `/results/[id]`
+- Built results page at `app/results/[id]/page.tsx` with spend breakdown, AI summary, and copy link button
+- Fixed Supabase RLS policies to allow public insert and select
+- Fixed missing columns in `audits` table (`summary`, `tool_results`, etc.)
+
+### Bugs fixed
+- API routes returning 404 — moved from `src/app/api/` to `app/api/`
+- Anthropic API call was missing from summary route — added `client.messages.create()`
+- `next.config.ts` build error — removed invalid `srcDir` experimental option
+- Supabase 401 unauthorized — added RLS policies
+- `params.id` returning undefined — switched to `useParams()` hook for Next.js 15
+
+### What's left for Day 3
+- Fix `/api/audit` 500 error
+- Write 5 tests
+- Set up GitHub Actions CI
+- Write all 10 markdown files
+
+### Learnings
+- Next.js App Router requires API routes in `app/api/`, not `src/app/api/` unless configured
+- Vercel auto-deploys on every `git push` to main
+- Supabase RLS blocks all writes by default — must add policies explicitly
+- Next.js 15 made `params` async — use `useParams()` hook in client components

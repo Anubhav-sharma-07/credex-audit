@@ -4,6 +4,13 @@ import { useState, useEffect } from "react";
 import type { FormState, ToolEntry, ToolName, PlanName, UseCase } from "@/types";
 import { TOOL_LABELS, PLAN_LABELS } from "@/lib/pricing";
 import { runAudit } from "@/lib/auditEngine";
+import { createClient } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const STORAGE_KEY = "credex_audit_form";
 
@@ -88,12 +95,52 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
     }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (form.tools.length === 0) return;
-    const result = runAudit(form.tools, form.teamSize, form.useCase);
-    onAuditComplete(result);
+  const router = useRouter();
+
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  if (form.tools.length === 0) return;
+  const result = runAudit(form.tools, form.teamSize, form.useCase);
+
+  // Get AI summary
+  let summary = "";
+  try {
+    const res = await fetch("/api/summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        teamSize: form.teamSize,
+        useCase: form.useCase,
+        totalMonthlySpend: result.totalMonthlySpend,
+        totalMonthlySavings: result.totalMonthlySavings,
+        totalAnnualSavings: result.totalAnnualSavings,
+        tools: result.toolResults,
+      }),
+    });
+    const data = await res.json();
+    summary = data.summary;
+  } catch {}
+
+  // Save to Supabase
+  const { data, error } = await supabase.from("audits").insert({
+    team_size: form.teamSize,
+    use_case: form.useCase,
+    total_monthly_spend: result.totalMonthlySpend,
+    total_monthly_savings: result.totalMonthlySavings,
+    total_annual_savings: result.totalAnnualSavings,
+    tool_results: result.toolResults,
+    summary,
+  }).select().single();
+
+  if (error) {
+    console.error(error);
+    onAuditComplete(result); // fallback
+    return;
   }
+
+  // Redirect to shareable URL
+  router.push(`/results/${data.id}`);
+}
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto p-6">

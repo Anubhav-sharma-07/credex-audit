@@ -24,7 +24,7 @@ Mention their biggest savings opportunity. End with one concrete next step.
 Do not use bullet points. Write in second person (you/your).`;
 
     const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-haiku-4-5",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });

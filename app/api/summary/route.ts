@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,15 +18,21 @@ Write a personalized 100-word summary of their audit results. Be specific, encou
 Mention their biggest savings opportunity. End with one concrete next step.
 Do not use bullet points. Write in second person (you/your).`;
 
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama3-8b-8192",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }],
+      }),
     });
 
-    const summary = message.content[0].type === "text"
-      ? message.content[0].text
-      : "Unable to generate summary.";
+    const data = await response.json();
+    const summary = data.choices?.[0]?.message?.content || "Unable to generate summary.";
 
     return NextResponse.json({ summary });
 

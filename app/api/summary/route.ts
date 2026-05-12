@@ -34,6 +34,7 @@ Do not use bullet points. Write in second person (you/your).`;
       : "Unable to generate summary.";
 
     return NextResponse.json({ summary });
+
   } catch (error) {
     console.error("Error generating summary:", error);
     return NextResponse.json({

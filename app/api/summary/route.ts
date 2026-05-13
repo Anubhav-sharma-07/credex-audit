@@ -12,7 +12,7 @@ Their current monthly spend: $${body.totalMonthlySpend}
 Potential monthly savings identified: $${body.totalMonthlySavings}
 Potential annual savings: $${body.totalAnnualSavings}
 
-Tools they use: ${body.tools.map((t: any) => `${t.tool} (${t.plan} plan, $${t.monthlySpend}/mo)`).join(", ")}
+Tools they use: ${body.tools.map((t: any) => `${t.tool} (${t.plan} plan, $${t.currentMonthlySpend}/mo)`).join(", ")}
 
 Write a personalized 100-word summary of their audit results. Be specific, encouraging, and actionable.
 Mention their biggest savings opportunity. End with one concrete next step.

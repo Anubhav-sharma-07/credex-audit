@@ -13,6 +13,8 @@ Had issues with tsconfig paths not resolving correctly — fixed by ensuring all
 
 **Plan for tomorrow:**
 Build the full audit results page with per-tool breakdown and savings numbers. Add Anthropic API for the AI-generated summary paragraph. Set up Supabase to store audit results. Build the shareable URL feature.
+
+
 ## Day 2 — 2026-05-11
 
 **Hours worked:** 6
@@ -45,14 +47,36 @@ Add shareable URLs for each audit. Write all required markdown files (ARCHITECTU
 - Supabase 401 unauthorized — added RLS policies
 - `params.id` returning undefined — switched to `useParams()` hook for Next.js 15
 
-### What's left for Day 3
-- Fix `/api/audit` 500 error
-- Write 5 tests
-- Set up GitHub Actions CI
-- Write all 10 markdown files
+
+## Day 4 — 2026-05-13
+
+### What I Built
+- Fixed AI summary API route on Vercel (routes were in `src/app/api/` but Next.js was looking in `app/api/`)
+- Switched AI provider from Anthropic to Groq (free tier) for AI summaries
+- Added shareable URLs — audit results now saved to Supabase and redirected to `/results/[id]`
+- Built results page at `app/results/[id]/page.tsx` with spend breakdown, AI summary, and copy link button
+- Fixed Supabase RLS policies to allow public insert and select
+- Wrote 5 Vitest tests for auditEngine — all passing
+- Set up GitHub Actions CI — runs tests and build on every push
+- Wrote 10 markdown documentation files
+
+### Bugs Fixed
+- API routes returning 404 — moved from `src/app/api/` to `app/api/`
+- Anthropic API call missing from summary route
+- `next.config.ts` build error — removed invalid `srcDir` option
+- Supabase 401 unauthorized — added RLS policies
+- `params.id` returning undefined — switched to `useParams()` hook
+- Groq model name incorrect — updated to `llama-3.1-8b-instant`
+- Anthropic API out of credits — switched to free Groq API
+
+### What's Left
+- Add email notifications for leads
+- Add CSV export for Pro users
+- Add team comparison feature
 
 ### Learnings
-- Next.js App Router requires API routes in `app/api/`, not `src/app/api/` unless configured
-- Vercel auto-deploys on every `git push` to main
-- Supabase RLS blocks all writes by default — must add policies explicitly
-- Next.js 15 made `params` async — use `useParams()` hook in client components
+- Always check actual error logs before guessing the fix
+- Groq offers free LLM API — perfect for prototypes
+- GitHub Actions CI catches build errors before they reach production
+- Vitest is fast and easy to set up in Next.js
+- Shareable URLs require dynamic routing and database persistence

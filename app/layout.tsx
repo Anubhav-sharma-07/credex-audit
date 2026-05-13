@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Spend Audit — Find where you're overspending on AI tools",
-  description: "Free 2-minute audit that shows exactly where your team is overspending on AI subscriptions.",
+  title: "SpendLens — Find where you're overspending on AI tools",
+  description: "SpendLens gives you clear visibility into your team's AI spend. Free 2-minute audit with instant savings recommendations.",
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>",
   },

@@ -14,12 +14,12 @@ export default function Home() {
         {!auditResult ? (
           <>
             <div className="text-center mb-10">
-              <h1 className="text-4xl font-bold text-gray-900 mb-3">
-                AI Spend Audit
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">
+             SpendLens
               </h1>
-              <p className="text-lg text-gray-600">
-                Find out where you're overspending on AI tools in 2 minutes. Free.
-              </p>
+               <p className="text-lg text-gray-600">
+                Get clear visibility into your AI tool spend. Find savings in 2 minutes. Free.
+               </p>
             </div>
             <SpendForm onAuditComplete={setAuditResult} />
           </>

@@ -87,12 +87,15 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
     }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (form.tools.length === 0) return;
-    const result = runAudit(form.tools, form.teamSize, form.useCase);
-    onAuditComplete(result);
-  }
+  const [loading, setLoading] = useState(false);
+
+function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  if (form.tools.length === 0) return;
+  setLoading(true);
+  const result = runAudit(form.tools, form.teamSize, form.useCase);
+  onAuditComplete(result);
+}
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto p-6">
@@ -201,12 +204,12 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
 
       {/* Submit */}
       <button
-        type="submit"
-        disabled={form.tools.length === 0}
-        className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-      >
-        Run my free audit →
-      </button>
+  type="submit"
+  disabled={form.tools.length === 0 || loading}
+  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+>
+  {loading ? "Running audit..." : "Run my free audit →"}
+</button>
     </form>
   );
 }

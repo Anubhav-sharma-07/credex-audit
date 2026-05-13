@@ -4,13 +4,6 @@ import { useState, useEffect } from "react";
 import type { FormState, ToolEntry, ToolName, PlanName, UseCase } from "@/types";
 import { TOOL_LABELS, PLAN_LABELS } from "@/lib/pricing";
 import { runAudit } from "@/lib/auditEngine";
-import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 const STORAGE_KEY = "credex_audit_form";
 
@@ -56,7 +49,7 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
       localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
-  
+
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -87,7 +80,6 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
     });
   }
 
-
   function updateToolEntry(tool: ToolName, field: keyof ToolEntry, value: string | number) {
     setForm((f) => ({
       ...f,
@@ -95,52 +87,12 @@ export default function SpendForm({ onAuditComplete }: SpendFormProps) {
     }));
   }
 
-  const router = useRouter();
-
-async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  if (form.tools.length === 0) return;
-  const result = runAudit(form.tools, form.teamSize, form.useCase);
-
-  // Get AI summary
-  let summary = "";
-  try {
-    const res = await fetch("/api/summary", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        teamSize: form.teamSize,
-        useCase: form.useCase,
-        totalMonthlySpend: result.totalMonthlySpend,
-        totalMonthlySavings: result.totalMonthlySavings,
-        totalAnnualSavings: result.totalAnnualSavings,
-        tools: result.toolResults,
-      }),
-    });
-    const data = await res.json();
-    summary = data.summary;
-  } catch {}
-
-  // Save to Supabase
-  const { data, error } = await supabase.from("audits").insert({
-    team_size: form.teamSize,
-    use_case: form.useCase,
-    total_monthly_spend: result.totalMonthlySpend,
-    total_monthly_savings: result.totalMonthlySavings,
-    total_annual_savings: result.totalAnnualSavings,
-    tool_results: result.toolResults,
-    summary,
-  }).select().single();
-
-  if (error) {
-    console.error(error);
-    onAuditComplete(result); // fallback
-    return;
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (form.tools.length === 0) return;
+    const result = runAudit(form.tools, form.teamSize, form.useCase);
+    onAuditComplete(result);
   }
-
-  // Redirect to shareable URL
-  router.push(`/results/${data.id}`);
-}
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto p-6">
@@ -185,7 +137,7 @@ async function handleSubmit(e: React.FormEvent) {
               key={tool}
               type="button"
               onClick={() => toggleTool(tool)}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
                 activeTools.has(tool)
                   ? "bg-emerald-600 text-white border-emerald-600"
                   : "bg-white text-gray-700 border-gray-300 hover:border-emerald-400"
@@ -210,7 +162,7 @@ async function handleSubmit(e: React.FormEvent) {
                   <select
                     value={entry.plan}
                     onChange={(e) => updateToolEntry(entry.tool, "plan", e.target.value as PlanName)}
-                    className="w-full border rounded px-2 py-1.5 text-sm"
+                    className="w-full border rounded px-2 py-1.5 text-sm cursor-pointer"
                   >
                     {TOOL_PLANS[entry.tool].map((plan) => (
                       <option key={plan} value={plan}>
@@ -251,7 +203,7 @@ async function handleSubmit(e: React.FormEvent) {
       <button
         type="submit"
         disabled={form.tools.length === 0}
-        className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
       >
         Run my free audit →
       </button>

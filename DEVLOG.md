@@ -29,54 +29,55 @@ How to connect Next.js API routes to Supabase. How to call the Anthropic API fro
 AuditResults component had repeated paste errors — fixed by using Cursor AI to generate the component. TypeScript error in summary route catch block — fixed by removing body reference from catch scope.
 
 **Plan for tomorrow:**
-Add shareable URLs for each audit. Write all required markdown files (ARCHITECTURE.md, REFLECTION.md, TESTS.md, GTM.md, ECONOMICS.md, PRICING_DATA.md, PROMPTS.md, LANDING_COPY.md, METRICS.md). Set up GitHub Actions CI. Do user interviews.
+Add shareable URLs for each audit. Write all required markdown files. Set up GitHub Actions CI. Do user interviews.
+
 
 ## Day 3 — 2026-05-12
 
-### What I built
-- Fixed AI summary API route on Vercel (routes were in `src/app/api/` but Next.js was looking in `app/api/`)
-- Added shareable URLs — audit results now saved to Supabase and redirected to `/results/[id]`
-- Built results page at `app/results/[id]/page.tsx` with spend breakdown, AI summary, and copy link button
-- Fixed Supabase RLS policies to allow public insert and select
-- Fixed missing columns in `audits` table (`summary`, `tool_results`, etc.)
+**Hours worked:** 7
 
-### Bugs fixed
-- API routes returning 404 — moved from `src/app/api/` to `app/api/`
-- Anthropic API call was missing from summary route — added `client.messages.create()`
-- `next.config.ts` build error — removed invalid `srcDir` experimental option
-- Supabase 401 unauthorized — added RLS policies
-- `params.id` returning undefined — switched to `useParams()` hook for Next.js 15
+**What I did:**
+Fixed AI summary API route on Vercel (routes were in src/app/api/ but Next.js was looking in app/api/). Added shareable URLs — audit results now saved to Supabase and redirected to /results/[id]. Built results page at app/results/[id]/page.tsx with spend breakdown, AI summary, and copy link button. Fixed Supabase RLS policies to allow public insert and select. Fixed missing columns in audits table.
+
+**What I learned:**
+Next.js 15 App Router requires API routes at the root app/ level, not inside src/. Supabase RLS policies must be explicitly set for public-facing inserts. The useParams() hook is required for dynamic routes in Next.js 15 — params.id alone returns undefined.
+
+**Blockers / what I'm stuck on:**
+Anthropic API ran out of free credits mid-build. Had to pivot to Groq free tier. This cost about 2 hours of debugging and switching provider logic.
+
+**Plan for tomorrow:**
+Write all 10 required markdown files. Add 5 Vitest tests for the audit engine. Set up GitHub Actions CI. Finalize the UI polish and OG tags for shareable URLs.
 
 
 ## Day 4 — 2026-05-13
 
-### What I Built
-- Fixed AI summary API route on Vercel (routes were in `src/app/api/` but Next.js was looking in `app/api/`)
-- Switched AI provider from Anthropic to Groq (free tier) for AI summaries
-- Added shareable URLs — audit results now saved to Supabase and redirected to `/results/[id]`
-- Built results page at `app/results/[id]/page.tsx` with spend breakdown, AI summary, and copy link button
-- Fixed Supabase RLS policies to allow public insert and select
-- Wrote 5 Vitest tests for auditEngine — all passing
-- Set up GitHub Actions CI — runs tests and build on every push
-- Wrote 10 markdown documentation files
+**Hours worked:** 8
 
-### Bugs Fixed
-- API routes returning 404 — moved from `src/app/api/` to `app/api/`
-- Anthropic API call missing from summary route
-- `next.config.ts` build error — removed invalid `srcDir` option
-- Supabase 401 unauthorized — added RLS policies
-- `params.id` returning undefined — switched to `useParams()` hook
-- Groq model name incorrect — updated to `llama-3.1-8b-instant`
-- Anthropic API out of credits — switched to free Groq API
+**What I did:**
+Switched AI provider from Anthropic to Groq (llama-3.1-8b-instant) for AI summaries. Wrote 5 Vitest tests for auditEngine — all passing locally and in CI. Set up GitHub Actions CI — runs lint and tests on every push to main, currently green. Wrote all 10 required markdown documentation files: ARCHITECTURE, REFLECTION, TESTS, GTM, ECONOMICS, PRICING_DATA, PROMPTS, LANDING_COPY, METRICS, DEVLOG. Rebranded app to SpendLens. Fixed page title, meta tags, and favicon.
 
-### What's Left
-- Add email notifications for leads
-- Add CSV export for Pro users
-- Add team comparison feature
+**What I learned:**
+Groq offers a genuinely fast and free LLM API — better choice than Anthropic for a prototype with uncertain credit availability. GitHub Actions with pnpm requires explicit cache configuration. Writing the GTM and ECONOMICS files forced me to think about the product as a business, not just a coding exercise — that shift in thinking was valuable.
 
-### Learnings
-- Always check actual error logs before guessing the fix
-- Groq offers free LLM API — perfect for prototypes
-- GitHub Actions CI catches build errors before they reach production
-- Vitest is fast and easy to set up in Next.js
-- Shareable URLs require dynamic routing and database persistence
+**Blockers / what I'm stuck on:**
+The ARCHITECHT URE.md filename got corrupted with a space during creation — spent time debugging git mv failures. Resolved by creating a fresh ARCHITECTURE.md. CI workflow had a secret injection issue on first run — fixed by triggering a fresh push.
+
+**Plan for tomorrow:**
+N/A — this is the final submission day. Will do a full end-to-end test of the live app, verify CI is green, and submit the Google Form.
+
+
+## Day 5 — 2026-05-13
+
+**Hours worked:** 0
+
+**What I did:**
+No new feature work today — this was submission day. Focused entirely on final checks: verifying the live URL works end-to-end, confirming CI is green on GitHub Actions, and submitting the Google Form before the deadline.
+
+**What I learned:**
+Shipping under a hard deadline forces ruthless prioritisation. The features I didn't build (PDF export, embeddable widget, referral codes) were the right things to cut — the core audit flow works and that matters more than bonus features.
+
+**Blockers / what I'm stuck on:**
+None — app is live and functional.
+
+**Plan for tomorrow:**
+Wait for Round 2 results. If shortlisted, plan the focused 2-day build.

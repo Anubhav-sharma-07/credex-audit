@@ -130,7 +130,8 @@ describe("SpendLens Security Test Suite", () => {
       const roles = ["owner", "admin", "member", "guest"] as const;
 
       // 2. Iterate every foreign role attempting cross-workspace reads and writes
-      for (const _role of roles) {
+      for (const role of roles) {
+        expect(role).toBeDefined();
         // Cross-workspace read attempt from Workspace B
         const foreignRead = await getSubscriptionById("ws_tenant_bravo", subA.id);
         expect(foreignRead).toBeNull();

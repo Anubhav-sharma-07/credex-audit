@@ -16,8 +16,8 @@ describe("runAudit", () => {
       { tool: "cursor" as const, plan: "pro" as const, seats: 1, monthlySpend: 20 },
     ];
     const result = runAudit(tools, 1, "coding");
-    expect(result.toolResults).toHaveLength(1);
-    expect(result.toolResults[0].tool).toBe("cursor");
+    expect(result.tools).toHaveLength(1);
+    expect(result.tools[0].tool).toBe("cursor");
   });
 
   it("should return zero savings when spend is optimal", () => {

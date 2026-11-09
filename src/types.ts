@@ -54,10 +54,25 @@ export interface ToolAuditResult {
 }
 
 export interface AuditResult {
+  tools: ToolAuditResult[];
   toolResults: ToolAuditResult[];
   totalMonthlySpend: number;
   totalMonthlySavings: number;
   totalAnnualSavings: number;
   useCase: UseCase;
   teamSize: number;
+  summary: string;
+}
+
+// Shape of a completed audit stored in Supabase and displayed in the results page
+export interface AuditRecord {
+  id: string;
+  team_size: number;
+  use_case: string;
+  total_monthly_spend: number;
+  total_monthly_savings: number;
+  total_annual_savings: number;
+  tool_results: ToolAuditResult[];
+  summary?: string;
+  created_at?: string;
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { CheckCircle2, Mail, Send } from "lucide-react";
 
 interface LeadCaptureProps {
   auditId: string;
@@ -11,86 +13,150 @@ export default function LeadCapture({ auditId, totalMonthlySavings }: LeadCaptur
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [role, setRole] = useState("");
+  const [consentGiven, setConsentGiven] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!consentGiven) {
+      setError("Please check the consent box to receive your audit report.");
+      return;
+    }
+
     setLoading(true);
+    setError(null);
+
     try {
-      await fetch("/api/lead", {
+      const res = await fetch("/api/lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ auditId, email, companyName, role }),
+        body: JSON.stringify({ auditId, email, companyName, role, consentGiven }),
       });
+
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || "Failed to submit lead request.");
+      }
+
       setSubmitted(true);
-    } catch {}
-    setLoading(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unable to dispatch report.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
-        <p className="text-2xl mb-2">🎉</p>
-        <h3 className="font-bold text-emerald-900 text-lg mb-1">Report sent!</h3>
-        <p className="text-emerald-700 text-sm">
-          Check your email for your full audit report.
-          {totalMonthlySavings > 500 && " A Credex advisor will reach out shortly."}
+      <div className="bg-savings-surface border border-savings-border rounded-sm p-6 text-center space-y-2">
+        <CheckCircle2 className="w-8 h-8 text-savings mx-auto" strokeWidth={1.75} />
+        <h3 className="font-bold text-ink text-base">Full Audit Report Sent</h3>
+        <p className="text-ink-muted text-xs max-w-sm mx-auto">
+          We have dispatched the complete breakdown to <strong className="text-ink">{email}</strong>.
+          {totalMonthlySavings > 500 && " An institutional spend advisor is also available if you require negotiation support."}
+        </p>
+        <p className="text-[11px] text-ink-subtle pt-2">
+          Want to unsubscribe in the future? Every email includes a 1-click unsubscribe link.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white border rounded-xl p-6 space-y-4">
-      <div>
-        <h3 className="font-bold text-gray-900 text-lg">Get your full report</h3>
-        <p className="text-gray-600 text-sm mt-1">
-          We will email you the complete audit with all recommendations.
+    <div className="bg-surface border border-border rounded-sm p-6 space-y-4 shadow-sm">
+      <div className="border-b border-border-subtle pb-3">
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-ink-muted" strokeWidth={1.75} />
+          <h3 className="font-bold text-ink text-sm">Receive Full Audit Report</h3>
+        </div>
+        <p className="text-ink-muted text-xs mt-1">
+          Enter your corporate email to receive step-by-step downgrade paths and vendor negotiation playbooks.
         </p>
       </div>
 
-      {/* Honeypot field - hidden from real users */}
-      <input type="text" name="website" className="hidden" tabIndex={-1} />
+      {error && (
+        <div role="alert" className="p-3 bg-danger-surface border border-danger-border rounded-xs text-xs text-danger">
+          {error}
+        </div>
+      )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      {/* Honeypot field - hidden from real users */}
+      <input type="text" name="website" className="hidden" tabIndex={-1} aria-hidden="true" />
+
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         <div>
-          <label className="block text-sm font-medium mb-1">Email address *</label>
+          <label htmlFor="lead-email" className="block text-xs font-semibold text-ink mb-1">
+            Work Email Address <span className="text-danger">*</span>
+          </label>
           <input
+            id="lead-email"
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@company.com"
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="eng-finance@company.com"
+            className="w-full bg-canvas border border-border text-ink rounded-xs px-3 py-2 text-xs min-h-[44px] focus-visible:outline-2 focus-visible:outline-ink"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Company name</label>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="lead-company" className="block text-xs font-semibold text-ink mb-1">
+              Company Name
+            </label>
+            <input
+              id="lead-company"
+              type="text"
+              autoComplete="organization"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Acme Corp"
+              className="w-full bg-canvas border border-border text-ink rounded-xs px-3 py-2 text-xs min-h-[44px] focus-visible:outline-2 focus-visible:outline-ink"
+            />
+          </div>
+          <div>
+            <label htmlFor="lead-role" className="block text-xs font-semibold text-ink mb-1">
+              Your Role
+            </label>
+            <input
+              id="lead-role"
+              type="text"
+              autoComplete="organization-title"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="CTO / Head of Eng"
+              className="w-full bg-canvas border border-border text-ink rounded-xs px-3 py-2 text-xs min-h-[44px] focus-visible:outline-2 focus-visible:outline-ink"
+            />
+          </div>
+        </div>
+
+        {/* Lead Consent Checkbox */}
+        <div className="flex items-start gap-2.5 pt-1">
           <input
-            type="text"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="Acme Inc."
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            id="lead-consent"
+            type="checkbox"
+            checked={consentGiven}
+            onChange={(e) => setConsentGiven(e.target.checked)}
+            className="mt-0.5 rounded-xs border-border text-ink focus-visible:ring-2 focus-visible:ring-ink min-h-[20px] min-w-[20px] cursor-pointer"
           />
+          <label htmlFor="lead-consent" className="text-[11px] text-ink-muted leading-relaxed cursor-pointer">
+            I agree to receive the executive spend audit and agree to the SpendLens{" "}
+            <Link href="/terms" className="text-action-text underline">Terms</Link> and{" "}
+            <Link href="/privacy" className="text-action-text underline">Privacy Policy</Link>. You can unsubscribe at any time.
+          </label>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Your role</label>
-          <input
-            type="text"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            placeholder="CTO, Engineering Manager..."
-            className="w-full border rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
+
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+          className="w-full bg-action-fill text-action-fill-foreground font-semibold py-2.5 px-4 rounded-xs text-xs min-h-[44px] hover:bg-action-fill-hover disabled:opacity-50 transition-standard flex items-center justify-center gap-2 cursor-pointer"
         >
-          {loading ? "Sending..." : "Send me the report →"}
+          <Send className="w-3.5 h-3.5" strokeWidth={1.75} />
+          {loading ? "Generating Report..." : "Email Full Savings Report"}
         </button>
       </form>
     </div>

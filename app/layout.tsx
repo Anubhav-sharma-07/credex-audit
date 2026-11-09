@@ -1,23 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "SpendLens — Find where you're overspending on AI tools",
-  description: "SpendLens gives you clear visibility into your team's AI spend. Free 2-minute audit with instant savings recommendations.",
+  title: "SpendLens — Institutional AI Spend Intelligence & Audit",
+  description: "SpendLens provides CFOs and engineering leaders with deterministic visibility into developer tool spend, contract renewals, and license optimization.",
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>",
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%2315191F'/><path d='M9 11h14M9 16h10M9 21h14' stroke='%23F28B38' stroke-width='2.5' stroke-linecap='round'/></svg>",
   },
+  metadataBase: new URL("https://spendlens.demo"),
 };
 
 export default function RootLayout({
@@ -28,7 +18,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased font-sans"
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

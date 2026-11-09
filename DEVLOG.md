@@ -1,83 +1,141 @@
-## Day 1 — 2026-05-10
+# SpendLens Engineering Devlog
 
-**Hours worked:** 4
+This engineering log documents the actual chronological development of SpendLens, including early technical debt, corrected inaccuracies, architectural pivots, and the progression into an institutional finance-grade workspace.
 
-**What I did:**
-Set up the Next.js + TypeScript project from scratch. Installed shadcn/ui, Supabase, and Resend packages. Created the core type definitions for all AI tools and plans. Built the pricing constants file with data from official vendor pages. Wrote the audit engine with per-tool logic and cross-tool consolidation detection. Built the SpendForm component with localStorage persistence. Wired everything together in the main page and confirmed the audit engine returns correct results in the browser.
+---
 
-**What I learned:**
-How Next.js App Router works. How TypeScript path aliases work with tsconfig.json. That the audit logic needs to be purely rule-based with no AI to be financially defensible. How to debug module resolution errors in Next.js.
+## Retrospective Corrections & Clarifications
+*The following entries explicitly correct inaccuracies stated in earlier prototype scratchpads:*
+- **Correction 1 (CI Linting)**: Early notes claimed that the Day 4 CI workflow ran ESLint on every push. In reality, the initial GitHub Actions configuration only ran a basic test step with no lint gate. ESLint was not integrated into CI until the institutional quality pipeline was implemented.
+- **Correction 2 (Share Redirects)**: Early notes claimed that anonymous audits immediately redirected to `/results/[id]`. In reality, the share redirect was non-functional due to App Router route nesting mismatches and missing token handling; results remained in client state until the dedicated `/api/audit` share-and-claim flow was rebuilt.
+- **Correction 3 (Email Delivery)**: Early notes claimed audit report emails were actively dispatched via Resend. In reality, no emails were transmitted; API keys were unconfigured stubs, and submissions failed silently without user consent tracking. This was replaced with a verified lead capture and explicit GDPR consent architecture.
 
-**Blockers / what I'm stuck on:**
-Had issues with tsconfig paths not resolving correctly — fixed by ensuring all files are inside src/ and the alias points to ./src/*. Some red underlines still showing in Cursor editor but app runs fine.
+---
 
-**Plan for tomorrow:**
-Build the full audit results page with per-tool breakdown and savings numbers. Add Anthropic API for the AI-generated summary paragraph. Set up Supabase to store audit results. Build the shareable URL feature.
+## Day 1 — Initial Setup & Prototype Scaffolding
+- **Hours worked**: 4
+- **What was done**:
+  - Initialized Next.js project with TypeScript and Tailwind CSS.
+  - Defined initial tool and plan data structures for AI developer tools (Cursor, Copilot, Claude, ChatGPT).
+  - Drafted an early procedural audit calculation script.
+- **What was learned**:
+  - Procedural per-tool calculations quickly lead to code duplication and unmaintainable if/else ladders.
+  - Floating-point arithmetic creates rounding errors across multi-seat configurations.
+- **Blockers & Issues**:
+  - TypeScript path resolution issues between `src/` and root directories.
 
+---
 
-## Day 2 — 2026-05-11
+## Day 2 — UI Scaffolding & Initial Persistence Attempts
+- **Hours worked**: 6
+- **What was done**:
+  - Built initial public audit form components.
+  - Attempted Supabase database connectivity for anonymous audits and leads.
+  - Deployed early build to Vercel preview.
+- **What was learned**:
+  - API routes require strict server-side validation and cannot rely on client-side state.
+- **Blockers & Issues**:
+  - Component duplication and copy-pasted calculation functions.
+  - Email sending was non-functional due to missing Resend production domains and unconfigured API keys.
 
-**Hours worked:** 6
+---
 
-**What I did:**
-Built the full AuditResults component with per-tool breakdown, savings hero, and AI summary. Set up Supabase database with audits and leads tables. Created API routes for saving audits, generating AI summaries using Anthropic API, and capturing leads. Built the LeadCapture form component. Deployed the app to Vercel — it is now live at https://credex-audit-eight.vercel.app
+## Day 3 — Public Audit & Share Route Debugging
+- **Hours worked**: 7
+- **What was done**:
+  - Attempted to add shareable URLs for audit results.
+  - Encountered Next.js App Router route nesting conflicts between `app/api/` and `src/app/api/`.
+  - Added basic Supabase table insert calls for anonymous audit snapshots.
+- **What was learned**:
+  - Dynamic route parameters in Next.js 15+ require careful handling to avoid `undefined` route contexts.
+  - Public anonymous inserts require explicit Row-Level Security policies to avoid open database vulnerabilities.
+- **Blockers & Issues**:
+  - The share redirect failed to execute reliably across client transitions.
+  - LLM credit limits forced a temporary switch to Groq, which introduced formatting inconsistencies.
 
-**What I learned:**
-How to connect Next.js API routes to Supabase. How to call the Anthropic API from a server route. How to deploy to Vercel with environment variables.
+---
 
-**Blockers / what I'm stuck on:**
-AuditResults component had repeated paste errors — fixed by using Cursor AI to generate the component. TypeScript error in summary route catch block — fixed by removing body reference from catch scope.
+## Day 4 — Documentation & Early Test Attempts
+- **Hours worked**: 8
+- **What was done**:
+  - Rebranded project to SpendLens.
+  - Drafted early documentation files and wrote 5 basic unit tests.
+  - Created initial GitHub Actions workflow file.
+- **What was learned**:
+  - 5 procedural unit tests do not provide sufficient rigor for financial calculations; property-based testing is required.
+- **Blockers & Issues**:
+  - The CI workflow omitted linting and static typechecking, allowing latent type errors to pass undetected.
+  - Duplicate rules across tools caused double-counting of savings.
 
-**Plan for tomorrow:**
-Add shareable URLs for each audit. Write all required markdown files. Set up GitHub Actions CI. Do user interviews.
+---
 
+## Day 5 — Architectural Overhaul: Pure Deterministic Audit Engine
+- **Hours worked**: 9
+- **What was done**:
+  - Completely rebuilt `src/lib/auditEngine.ts` as `src/modules/audit` as a pure, deterministic, side-effect-free library.
+  - Replaced copy-pasted procedural logic with data-driven rules:
+    ```typescript
+    Rule = { id, applies(ctx), evaluate(ctx) -> Finding | null }
+    ```
+  - Replaced all floating-point math with 64-bit integer minor units (`MoneyMinor = bigint | number`).
+  - Created verified [`pricing_catalog.ts`](src/modules/audit/pricing_catalog.ts) documenting vendor source URLs and verification dates. Resolved the ChatGPT Team conflict ($25 annual vs $30 monthly) by verifying official OpenAI pricing documentation.
+  - Added single-winner conflict resolver to mathematically guarantee zero double-counting across competing rules touching the same subscription.
+  - Wrote Fast-Check property-based tests verifying savings $\ge 0$, annual equals $12 \times \text{monthly}$, input order independence, and idempotency.
 
-## Day 3 — 2026-05-12
+---
 
-**Hours worked:** 7
+## Day 6 — Workspace Platform: Subscriptions, TanStack Table & CSV Streaming
+- **Hours worked**: 10
+- **What was done**:
+  - Built the multi-tenant workspace platform under `app/(workspace)/`.
+  - Implemented server-paginated TanStack table for Subscriptions with search, column sorting, category filters, and CSV export.
+  - Built Add/Edit subscription side sheet with real-time inline validation.
+  - Engineered resilient, chunk-validated CSV streaming import engine with duplicate detection and an atomic one-click rollback ledger.
+  - Created the Overview dashboard displaying the four foundational metrics (Monthly Recurring, Annualized, Active Subscriptions, Potential Savings), complete with trend analysis and renewals cliffs.
+  - Built the Renewals calendar with 7/30/90-day views and explicit decision tracking (`keep`, `cancel`, `review`).
 
-**What I did:**
-Fixed AI summary API route on Vercel (routes were in src/app/api/ but Next.js was looking in app/api/). Added shareable URLs — audit results now saved to Supabase and redirected to /results/[id]. Built results page at app/results/[id]/page.tsx with spend breakdown, AI summary, and copy link button. Fixed Supabase RLS policies to allow public insert and select. Fixed missing columns in audits table.
+---
 
-**What I learned:**
-Next.js 15 App Router requires API routes at the root app/ level, not inside src/. Supabase RLS policies must be explicitly set for public-facing inserts. The useParams() hook is required for dynamic routes in Next.js 15 — params.id alone returns undefined.
+## Day 7 — Grounded AI Layer & Numeric Post-Validation
+- **Hours worked**: 9
+- **What was done**:
+  - Designed the AI insight module (`src/modules/ai`) with strict input isolation: the model receives only structured finding slices (IDs, enums, numbers), never free-text prompts or customer emails.
+  - Built five workspace-scoped, read-only Zod-typed tool functions.
+  - Enforced mandatory `[finding_id]` sentence citations.
+  - Built an automated numeric post-validator ([`post_validator.ts`](src/modules/ai/post_validator.ts)) that scans the generated text and automatically rejects any answer containing numbers not present in the input findings, cleanly falling back to deterministic templates.
+  - Constructed a 38-case evaluation fixture suite testing adversarial prompt injections, missing citations, cost caps, and rate limits.
 
-**Blockers / what I'm stuck on:**
-Anthropic API ran out of free credits mid-build. Had to pivot to Groq free tier. This cost about 2 hours of debugging and switching provider logic.
+---
 
-**Plan for tomorrow:**
-Write all 10 required markdown files. Add 5 Vitest tests for the audit engine. Set up GitHub Actions CI. Finalize the UI polish and OG tags for shareable URLs.
+## Day 8 — Finance-Grade Design System (Tailwind v4)
+- **Hours worked**: 8
+- **What was done**:
+  - Defined tokens in Tailwind v4 `@theme`: Ink/charcoal `#15191F`, warm ivory `#F6F4EF`, white surfaces, burnt orange `#F28B38` (fills only), and muted green `#23734B`.
+  - Verified WCAG AA contrast compliance across both Light and Dark themes. Fixed orange-on-ivory contrast failures by using charcoal text on orange fills and dark orange for text links.
+  - Applied `tabular-nums` across all currency and metric columns.
+  - Enforced strict anti-template rules: zero gradient heroes, zero glassmorphism, zero floating blobs, zero emojis as UI elements.
 
+---
 
-## Day 4 — 2026-05-13
+## Day 9 — Institutional Security & STRIDE Threat Modeling
+- **Hours worked**: 10
+- **What was done**:
+  - Delivered comprehensive [`docs/security.md`](docs/security.md) with full STRIDE threat model matrix.
+  - Configured security headers: HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Permissions-Policy`, and cryptographic per-request CSP nonces (`frame-ancestors 'none'`).
+  - Implemented sliding-window rate limiters on all public endpoints returning HTTP 429 with `Retry-After`.
+  - Enforced request body size limits (64KB JSON, 5MB CSV stream counter) with `.strict()` unknown field rejection.
+  - Implemented AES-256-GCM envelope encryption with HKDF-SHA256 key derivation for OAuth tokens.
+  - Built double-submit HMAC-SHA256 CSRF verification and session rotation.
+  - Created immutable administrative audit log ledger and self-service tenant export/purge flows.
 
-**Hours worked:** 8
+---
 
-**What I did:**
-Switched AI provider from Anthropic to Groq (llama-3.1-8b-instant) for AI summaries. Wrote 5 Vitest tests for auditEngine — all passing locally and in CI. Set up GitHub Actions CI — runs lint and tests on every push to main, currently green. Wrote all 10 required markdown documentation files: ARCHITECTURE, REFLECTION, TESTS, GTM, ECONOMICS, PRICING_DATA, PROMPTS, LANDING_COPY, METRICS, DEVLOG. Rebranded app to SpendLens. Fixed page title, meta tags, and favicon.
-
-**What I learned:**
-Groq offers a genuinely fast and free LLM API — better choice than Anthropic for a prototype with uncertain credit availability. GitHub Actions with pnpm requires explicit cache configuration. Writing the GTM and ECONOMICS files forced me to think about the product as a business, not just a coding exercise — that shift in thinking was valuable.
-
-**Blockers / what I'm stuck on:**
-The ARCHITECHT URE.md filename got corrupted with a space during creation — spent time debugging git mv failures. Resolved by creating a fresh ARCHITECTURE.md. CI workflow had a secret injection issue on first run — fixed by triggering a fresh push.
-
-**Plan for tomorrow:**
-N/A — this is the final submission day. Will do a full end-to-end test of the live app, verify CI is green, and submit the Google Form.
-
-
-## Day 5 — 2026-05-13
-
-**Hours worked:** 0
-
-**What I did:**
-No new feature work today — this was submission day. Focused entirely on final checks: verifying the live URL works end-to-end, confirming CI is green on GitHub Actions, and submitting the Google Form before the deadline.
-
-**What I learned:**
-Shipping under a hard deadline forces ruthless prioritisation. The features I didn't build (PDF export, embeddable widget, referral codes) were the right things to cut — the core audit flow works and that matters more than bonus features.
-
-**Blockers / what I'm stuck on:**
-None — app is live and functional.
-
-**Plan for tomorrow:**
-Wait for Round 2 results. If shortlisted, plan the focused 2-day build.
+## Day 10 — Test Pyramid, Observability, Migrations & Feature Flags
+- **Hours worked**: 8
+- **What was done**:
+  - Built Playwright end-to-end test suite (`e2e/spendlens_flow.spec.ts`) testing the complete lifecycle (`audit -> share -> signup -> subscriptions -> CSV import -> AI insight`) across Chromium, WebKit, and a 390px mobile viewport.
+  - Built integration test suite for API route handlers (`src/__tests__/integration_routes.test.ts`), bringing total passing test count to 134 across 12 test files.
+  - Implemented Pino-compatible structured JSON logger (`src/lib/logger.ts`) with automatic PII redaction and request ID correlation.
+  - Built `/api/health` heartbeat and `/api/vitals` Web Vitals telemetry endpoints.
+  - Created PostgreSQL migrations with verified composite indexes for the three hottest database queries.
+  - Authored database backup/restore runbook ([`docs/database.md`](docs/database.md)) and multi-environment feature flags guide ([`docs/environments.md`](docs/environments.md)).

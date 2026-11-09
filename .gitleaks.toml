@@ -1,0 +1,32 @@
+title = "SpendLens Gitleaks Secret Scanner Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for harmless placeholders and test fixtures"
+paths = [
+  '''\.next/.*''',
+  '''node_modules/.*''',
+  '''src/modules/audit/__tests__/.*''',
+  '''src/modules/security/__tests__/.*''',
+]
+regexes = [
+  '''placeholder-anon-key''',
+  '''https://placeholder\.supabase\.co''',
+  '''spendlens_default_master_encryption_key_32_bytes_min!''',
+]
+
+[[rules]]
+id = "supabase-service-key"
+description = "Detected Supabase Service Role Key"
+regex = '''(?i)supabase[_-]?service[_-]?role[_-]?key\s*[:=]\s*['"][a-zA-Z0-9_\-\.]{40,}['"]'''
+secretGroup = 0
+keywords = ["supabase_service_role_key"]
+
+[[rules]]
+id = "generic-private-key"
+description = "Detected Unencrypted Private Key"
+regex = '''-----BEGIN ((EC|PGP|DSA|RSA|OPENSSH) )?PRIVATE KEY( BLOCK)?-----'''
+keywords = ["-----BEGIN PRIVATE KEY-----"]
+

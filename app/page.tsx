@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import ThemeToggle from "@/components/workspace/ThemeToggle";
+import { CATALOG_METADATA } from "@/modules/audit/pricing_catalog";
 
 export default function LandingPage() {
   return (
@@ -241,7 +242,7 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <div className="pt-1 flex items-center justify-between text-[10px] text-ink-muted">
-                    <span>Pricing verified against vendor catalog</span>
+                    <span>Pricing verified against vendor rate card catalog (v{CATALOG_METADATA.version})</span>
                     <Link href="/overview" className="text-action-text font-semibold hover:underline">
                       Launch Full Workspace →
                     </Link>

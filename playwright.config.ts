@@ -44,6 +44,14 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key-valid-32-chars-long",
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-key-valid-32-chars-long",
+      ENCRYPTION_MASTER_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      SESSION_SECRET: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      CSRF_SECRET: "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+    },
   },
 });
 

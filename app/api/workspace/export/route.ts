@@ -3,6 +3,8 @@ import { exportWorkspaceData } from "@/modules/security/retention";
 import { recordAuditLog } from "@/modules/security/audit_log";
 import { getClientIp } from "@/modules/security/rate_limiter";
 import { getSessionUser, requireWorkspaceMember, getUserWorkspace } from "@/lib/auth/server";
+import { assertMutationCsrfAndOrigin } from "@/modules/security/csrf";
+import { captureException } from "@/lib/sentry";
 
 export async function GET(request: NextRequest) {
   let workspaceId = request.nextUrl.searchParams.get("workspaceId");
@@ -19,6 +21,19 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized: Active session required to export workspace data." },
+      { status: 401 }
+    );
+  }
+
+  const csrfCheck = assertMutationCsrfAndOrigin(request, user);
+  if (!csrfCheck.allowed) {
+    return csrfCheck.errorResponse!;
+  }
+
   let workspaceId = "00000000-0000-0000-0000-000000000001";
   try {
     const body = await request.json();
@@ -28,11 +43,11 @@ export async function POST(request: NextRequest) {
   } catch {
     workspaceId = request.nextUrl.searchParams.get("workspaceId") || "00000000-0000-0000-0000-000000000001";
   }
-  return handleExport(request, workspaceId);
+  return handleExport(request, workspaceId, user);
 }
 
-async function handleExport(request: NextRequest, workspaceId: string) {
-  const user = await getSessionUser();
+async function handleExport(request: NextRequest, workspaceId: string, preloadedUser?: Awaited<ReturnType<typeof getSessionUser>>) {
+  const user = preloadedUser || (await getSessionUser());
   if (!user) {
     return NextResponse.json(
       { error: "Unauthorized: Active session required to export workspace data." },
@@ -72,6 +87,12 @@ async function handleExport(request: NextRequest, workspaceId: string) {
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to export data";
+    captureException(error, {
+      route: "api/workspace/export",
+      workspaceId,
+      userId: user?.id,
+      extra: { requestId },
+    });
     console.error(`[EXPORT_ERROR] [${requestId}]:`, message);
     return NextResponse.json(
       { error: message, requestId },

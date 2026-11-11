@@ -5,6 +5,8 @@ import { recordAuditLog } from "@/modules/security/audit_log";
 import { parseAndValidateBody } from "@/modules/security/request_validation";
 import { getClientIp } from "@/modules/security/rate_limiter";
 import { getSessionUser, requireWorkspaceMember } from "@/lib/auth/server";
+import { assertMutationCsrfAndOrigin } from "@/modules/security/csrf";
+import { captureException } from "@/lib/sentry";
 
 const DeleteWorkspaceSchema = z.object({
   workspaceId: z.string().min(1).max(100),
@@ -22,6 +24,12 @@ export async function POST(request: NextRequest) {
       { error: "Unauthorized: Active session required to delete a workspace." },
       { status: 401 }
     );
+  }
+
+  // 2. Strict CSRF & Origin Verification on State Mutation
+  const csrfCheck = assertMutationCsrfAndOrigin(request, user);
+  if (!csrfCheck.allowed) {
+    return csrfCheck.errorResponse!;
   }
 
   const validation = await parseAndValidateBody(request, DeleteWorkspaceSchema, {
@@ -68,6 +76,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to purge workspace";
+    captureException(error, {
+      route: "api/workspace/delete",
+      workspaceId: data.workspaceId,
+      userId: user.id,
+      extra: { requestId },
+    });
     console.error(`[WORKSPACE_DELETE_ERROR] [${requestId}]:`, message);
     return NextResponse.json(
       { error: message, requestId },

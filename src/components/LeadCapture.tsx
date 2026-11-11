@@ -53,13 +53,13 @@ export default function LeadCapture({ auditId, totalMonthlySavings }: LeadCaptur
     return (
       <div className="bg-savings-surface border border-savings-border rounded-sm p-6 text-center space-y-2">
         <CheckCircle2 className="w-8 h-8 text-savings mx-auto" strokeWidth={1.75} />
-        <h3 className="font-bold text-ink text-base">Full Audit Report Sent</h3>
+        <h3 className="font-bold text-ink text-base">Audit Registered & Consultation Requested</h3>
         <p className="text-ink-muted text-xs max-w-sm mx-auto">
-          We have dispatched the complete breakdown to <strong className="text-ink">{email}</strong>.
-          {totalMonthlySavings > 500 && " An institutional spend advisor is also available if you require negotiation support."}
+          We have registered your audit for <strong className="text-ink">{email}</strong>. A spend advisor will review your findings.
+          {totalMonthlySavings > 500 && " Institutional spend playbooks and negotiation guidance are being prepared."}
         </p>
         <p className="text-[11px] text-ink-subtle pt-2">
-          Want to unsubscribe in the future? Every email includes a 1-click unsubscribe link.
+          If email delivery is enabled, a copy will be dispatched to your inbox. Every email includes a 1-click unsubscribe link.
         </p>
       </div>
     );
@@ -70,10 +70,10 @@ export default function LeadCapture({ auditId, totalMonthlySavings }: LeadCaptur
       <div className="border-b border-border-subtle pb-3">
         <div className="flex items-center gap-2">
           <Mail className="w-4 h-4 text-ink-muted" strokeWidth={1.75} />
-          <h3 className="font-bold text-ink text-sm">Receive Full Audit Report</h3>
+          <h3 className="font-bold text-ink text-sm">Request Audit Consultation & Export</h3>
         </div>
         <p className="text-ink-muted text-xs mt-1">
-          Enter your corporate email to receive step-by-step downgrade paths and vendor negotiation playbooks.
+          Enter your work email to register this audit and request vendor negotiation playbooks.
         </p>
       </div>
 
@@ -85,6 +85,7 @@ export default function LeadCapture({ auditId, totalMonthlySavings }: LeadCaptur
 
       {/* Honeypot field - hidden from real users */}
       <input type="text" name="website" className="hidden" tabIndex={-1} aria-hidden="true" />
+      <input type="hidden" name="turnstileToken" value="" />
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div>
@@ -156,7 +157,7 @@ export default function LeadCapture({ auditId, totalMonthlySavings }: LeadCaptur
           className="w-full bg-action-fill text-action-fill-foreground font-semibold py-2.5 px-4 rounded-xs text-xs min-h-[44px] hover:bg-action-fill-hover disabled:opacity-50 transition-standard flex items-center justify-center gap-2 cursor-pointer"
         >
           <Send className="w-3.5 h-3.5" strokeWidth={1.75} />
-          {loading ? "Generating Report..." : "Email Full Savings Report"}
+          {loading ? "Registering Request..." : "Request Spend Consultation & Export"}
         </button>
       </form>
     </div>

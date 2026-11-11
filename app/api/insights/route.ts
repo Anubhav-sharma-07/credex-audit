@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { answerAIQuestion } from "@/modules/ai";
 import { listSubscriptions } from "@/modules/workspace/subscriptions";
@@ -7,6 +7,8 @@ import type { ToolId } from "@/modules/audit/types";
 import { parseAndValidateBody } from "@/modules/security/request_validation";
 import { checkRateLimit, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp } from "@/modules/security/rate_limiter";
 import { getSessionUser, requireWorkspaceMember, getUserWorkspace } from "@/lib/auth/server";
+import { assertMutationCsrfAndOrigin } from "@/modules/security/csrf";
+import { captureException } from "@/lib/sentry";
 
 const QuestionRequestSchema = z.object({
   workspaceId: z.string().optional(),
@@ -19,7 +21,7 @@ const QuestionRequestSchema = z.object({
   ]),
 }).strict();
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   // 1. Rate Limiting Check
   const clientIp = getClientIp(request);
   const rateLimit = checkRateLimit(clientIp, "insights_api", ROUTE_RATE_LIMITS.insights);
@@ -36,7 +38,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Size Limit & Strict Schema Validation
+  // 3. Strict CSRF & Origin Verification on State Mutation
+  const csrfCheck = assertMutationCsrfAndOrigin(request, user);
+  if (!csrfCheck.allowed) {
+    return csrfCheck.errorResponse!;
+  }
+
+  // 4. Size Limit & Strict Schema Validation
   const validation = await parseAndValidateBody(request, QuestionRequestSchema, {
     maxSizeBytes: 32 * 1024,
     routeContext: "api/insights",
@@ -125,6 +133,11 @@ export async function POST(request: Request) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error generating AI insights";
+    captureException(error, {
+      route: "api/insights",
+      userId: user.id,
+      extra: { requestId },
+    });
     console.error(`[INSIGHTS_ERROR] [${requestId}]:`, message);
     return NextResponse.json(
       { error: message || "Failed to generate AI insights", requestId },

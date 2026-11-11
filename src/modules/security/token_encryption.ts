@@ -1,7 +1,8 @@
 import { randomBytes, createCipheriv, createDecipheriv, hkdfSync } from "crypto";
 import { getServerEnv } from "@/lib/env";
+import { isFeatureEnabled } from "@/lib/feature_flags";
 
-export interface EncryptedTokenEnvelope {
+export interface EncryptedTokenPayload {
   encryptedDek: string; // Base64
   dekIv: string;        // Base64
   dekTag: string;       // Base64
@@ -12,6 +13,9 @@ export interface EncryptedTokenEnvelope {
   keyVersion: string;
   createdAt: string;
 }
+
+// Backwards-compatible alias
+export type EncryptedTokenEnvelope = EncryptedTokenPayload;
 
 export interface OAuthTokenPayload {
   accessToken: string;
@@ -36,11 +40,12 @@ export const MINIMUM_OAUTH_SCOPES = {
   microsoft: ["Mail.Read", "User.Read"],
 } as const;
 
-const HKDF_SALT = "spendlens-envelope-encryption-salt-v1";
+const HKDF_SALT = "spendlens-master-secret-salt-v1";
 const HKDF_INFO = "spendlens-oauth-token-kek-derivation";
 
 /**
- * Derives the Key Encryption Key (KEK) from the master key using HKDF-SHA256.
+ * Derives the Key Encryption Key (KEK) from the master key using HKDF-SHA256
+ * (key derivation from a master secret).
  */
 function deriveKeyEncryptionKey(): Buffer {
   const env = getServerEnv();
@@ -50,14 +55,19 @@ function deriveKeyEncryptionKey(): Buffer {
 }
 
 /**
- * Encrypts an OAuth token payload using Envelope Encryption (AES-256-GCM).
+ * Encrypts an OAuth token payload using key derivation from a master secret (AES-256-GCM).
  *
+ * Gated behind the `gmail_auto_sync` feature flag.
  * 1. Generates a fresh random 256-bit Data Encryption Key (DEK).
  * 2. Encrypts token plaintext with DEK.
- * 3. Encrypts DEK with the derived Key Encryption Key (KEK).
- * 4. Returns self-contained envelope with authenticated cryptographic tags.
+ * 3. Encrypts DEK with the derived Key Encryption Key (KEK derived via HKDF-SHA256 from master secret).
+ * 4. Returns self-contained payload with authenticated cryptographic tags.
  */
-export function encryptOAuthToken(payload: OAuthTokenPayload): EncryptedTokenEnvelope {
+export function encryptOAuthToken(payload: OAuthTokenPayload): EncryptedTokenPayload {
+  if (!isFeatureEnabled("gmail_auto_sync")) {
+    throw new Error("OAuth token encryption is disabled by feature flag 'gmail_auto_sync'.");
+  }
+
   const kek = deriveKeyEncryptionKey();
 
   // 1. Generate unique DEK and IV
@@ -90,11 +100,17 @@ export function encryptOAuthToken(payload: OAuthTokenPayload): EncryptedTokenEnv
 }
 
 /**
- * Decrypts an encrypted token envelope.
+ * Decrypts an encrypted token payload.
  * Verifies authentication tags on both the DEK and payload.
  * Throws an integrity error if ciphertext or tag was tampered with.
+ *
+ * Gated behind the `gmail_auto_sync` feature flag.
  */
-export function decryptOAuthToken(envelope: EncryptedTokenEnvelope): OAuthTokenPayload {
+export function decryptOAuthToken(envelope: EncryptedTokenPayload): OAuthTokenPayload {
+  if (!isFeatureEnabled("gmail_auto_sync")) {
+    throw new Error("OAuth token decryption is disabled by feature flag 'gmail_auto_sync'.");
+  }
+
   if (envelope.algorithm !== "aes-256-gcm") {
     throw new Error(`Unsupported encryption algorithm: ${envelope.algorithm}`);
   }

@@ -5,6 +5,7 @@ import { checkRateLimit, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp
 import { trackAnonymousAudit } from "@/modules/security/retention";
 import { getAuditRepository } from "@/modules/audit/repository";
 import { createClient } from "@supabase/supabase-js";
+import { captureException } from "@/lib/sentry";
 
 const AuditToolItemSchema = z.object({
   tool: z.string().min(1).max(100),
@@ -87,6 +88,10 @@ export async function POST(request: NextRequest) {
     }, { status: 200 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal audit error";
+    captureException(err, {
+      route: "api/audit",
+      extra: { requestId, teamSize: data.teamSize, useCase: data.useCase },
+    });
     console.error(`[AUDIT_ERROR] [${requestId}]:`, msg);
     return NextResponse.json({ error: "Failed to persist audit snapshot", requestId }, { status: 500 });
   }

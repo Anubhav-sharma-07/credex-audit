@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth/server";
+import { getSessionUser, getUserWorkspace } from "@/lib/auth/server";
 import WorkspaceSidebar from "@/components/workspace/Sidebar";
 import CommandPalette from "@/components/workspace/CommandPalette";
 
@@ -14,6 +14,11 @@ export default async function WorkspaceLayout({
   if (!user) {
     redirect("/login");
   }
+
+  const userWs = await getUserWorkspace(user.id);
+  const workspaceName = userWs?.name || "Primary Workspace";
+  const userRole = userWs?.role || "owner";
+
   return (
     <div className="flex min-h-screen bg-canvas text-ink antialiased">
       {/* Accessible Skip Link for Screen Readers & Keyboard Operability */}
@@ -28,7 +33,11 @@ export default async function WorkspaceLayout({
       <CommandPalette />
 
       {/* Primary Sidebar */}
-      <WorkspaceSidebar />
+      <WorkspaceSidebar
+        workspaceName={workspaceName}
+        userRole={userRole}
+        userEmail={user.email}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">

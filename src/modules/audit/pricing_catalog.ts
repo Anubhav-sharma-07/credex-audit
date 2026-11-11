@@ -6,6 +6,12 @@ import type {
   StalePricingWarning,
 } from "./types";
 
+export const CATALOG_METADATA = {
+  version: "2026.05",
+  verifiedAt: "2026-05-10",
+  totalVendors: 8,
+} as const;
+
 export const PRICING_CATALOG: PricingCatalogEntry[] = [
   // --- Cursor ---
   {

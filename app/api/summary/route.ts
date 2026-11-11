@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { answerAIQuestion, type StructuredFindingInput } from "@/modules/ai";
+import { defaultAIRateLimiter } from "@/modules/ai/rate_limiter";
 import { parseAndValidateBody } from "@/modules/security/request_validation";
-import { checkRateLimit, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp } from "@/modules/security/rate_limiter";
+import { checkRateLimitAsync, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp } from "@/modules/security/rate_limiter";
+import { getSessionUser, getUserWorkspace } from "@/lib/auth/server";
+import { captureException } from "@/lib/sentry";
 
+// Client cannot supply or spoof userId/workspaceId to bypass AI cost caps
 const SummaryRequestSchema = z.object({
-  workspaceId: z.string().max(100).optional(),
-  userId: z.string().max(100).optional(),
   teamSize: z.number().int().min(1).max(10000).default(1),
   useCase: z.string().max(100).optional(),
   totalMonthlySpend: z.number().min(0).default(0),
@@ -23,9 +25,9 @@ const SummaryRequestSchema = z.object({
 }).strict();
 
 export async function POST(request: NextRequest) {
-  // 1. Rate Limiting Check
+  // 1. IP-level Rate Limiting Check (Distributed via Upstash if configured)
   const clientIp = getClientIp(request);
-  const rateLimit = checkRateLimit(clientIp, "summary_api", ROUTE_RATE_LIMITS.summary);
+  const rateLimit = await checkRateLimitAsync(clientIp, "summary_api", ROUTE_RATE_LIMITS.summary);
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);
   }
@@ -42,7 +44,40 @@ export async function POST(request: NextRequest) {
 
   const { data, requestId } = validation;
 
+  // 3. Resolve authoritative user & workspace (Strictly immune to client body spoofing)
+  let resolvedUserId: string;
+  let resolvedWorkspaceId: string;
+
   try {
+    const sessionUser = await getSessionUser();
+    if (sessionUser) {
+      resolvedUserId = sessionUser.id;
+      const userWs = await getUserWorkspace(sessionUser.id);
+      resolvedWorkspaceId = userWs?.workspaceId || "00000000-0000-0000-0000-000000000001";
+    } else {
+      // Unauthenticated public audit summary: key strictly on the client IP
+      resolvedUserId = `anon_${clientIp}`;
+      resolvedWorkspaceId = `public_${clientIp}`;
+    }
+
+    // 4. Enforce AI Rate Limiting & Daily Cost Caps keyed on authoritative identities
+    const aiRateCheck = await defaultAIRateLimiter.checkRateLimitDistributed(
+      resolvedUserId,
+      resolvedWorkspaceId
+    );
+
+    if (!aiRateCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: aiRateCheck.reason || "AI rate limit exceeded.",
+          summary:
+            "Deterministic audit calculations verified. AI rate limit reached; review recommendations below for specific ways to tighten plan fit.",
+          requestId,
+        },
+        { status: 429 }
+      );
+    }
+
     const tools = data.tools;
     const teamSize = data.teamSize;
     const monthlySpendUsd = data.totalMonthlySpend;
@@ -66,14 +101,18 @@ export async function POST(request: NextRequest) {
     });
 
     const aiResult = await answerAIQuestion({
-      workspaceId: data.workspaceId || "public-audit",
-      userId: data.userId || "anonymous",
+      workspaceId: resolvedWorkspaceId,
+      userId: resolvedUserId,
       questionType: "spend_analysis",
       findings: structuredFindings,
       monthlySpendUsd,
       monthlySavingsUsd,
       teamSize,
     });
+
+    // Record usage cost against the authoritative workspace
+    const estimatedCost = aiResult.meta.tokenCount ? (aiResult.meta.tokenCount / 1000) * 0.002 : 0.001;
+    defaultAIRateLimiter.recordCost(resolvedWorkspaceId, estimatedCost);
 
     return NextResponse.json({
       summary: aiResult.answer,
@@ -82,6 +121,7 @@ export async function POST(request: NextRequest) {
       requestId,
     });
   } catch (err: unknown) {
+    captureException(err, { route: "api/summary", extra: { requestId } });
     const msg = err instanceof Error ? err.message : "Error generating summary";
     console.error(`[SUMMARY_ERROR] [${requestId}]:`, msg);
     return NextResponse.json({

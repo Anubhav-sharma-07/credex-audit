@@ -13,7 +13,7 @@ src/modules/
 ├── audit/          # Pure deterministic rule engine & pricing catalog
 ├── workspace/      # Multi-tenant domain, subscriptions, TanStack table, CSV streaming
 ├── ai/             # Grounded plain-language insight generator & numeric validator
-└── security/       # Envelope encryption, sliding-window rate limiters, CSRF, audit log
+└── security/       # Token encryption via HKDF key derivation, rate limiters, CSRF, audit log
 ```
 
 ### Module Responsibilities
@@ -31,8 +31,8 @@ src/modules/
   - Completely isolated from raw database queries, user emails, and raw rows.
   - Enforces mandatory `[finding_id]` citations and runs a strict post-validator that automatically rejects any output containing numbers not present in the input.
 - **`src/modules/security`**:
-  - AES-256-GCM envelope encryption for sensitive tokens using HKDF-SHA256 derived Key Encryption Keys (KEKs).
-  - Sliding-window rate limiters returning HTTP 429 with `Retry-After`.
+  - AES-256-GCM authenticated encryption for sensitive tokens using HKDF-SHA256 derived Key Encryption Keys (KEKs) from a master secret (gated behind `gmail_auto_sync`).
+  - Distributed Upstash Redis & sliding-window rate limiters returning HTTP 429 with `Retry-After`.
   - Double-submit HMAC-SHA256 CSRF verification and session rotation.
   - Immutable audit logging ledger restricted to `owner` and `admin` roles.
 

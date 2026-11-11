@@ -124,7 +124,7 @@ This engineering log documents the actual chronological development of SpendLens
   - Configured security headers: HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Permissions-Policy`, and cryptographic per-request CSP nonces (`frame-ancestors 'none'`).
   - Implemented sliding-window rate limiters on all public endpoints returning HTTP 429 with `Retry-After`.
   - Enforced request body size limits (64KB JSON, 5MB CSV stream counter) with `.strict()` unknown field rejection.
-  - Implemented AES-256-GCM envelope encryption with HKDF-SHA256 key derivation for OAuth tokens.
+  - Implemented AES-256-GCM token encryption with HKDF-SHA256 key derivation from a master secret (feature-gated behind `gmail_auto_sync`).
   - Built double-submit HMAC-SHA256 CSRF verification and session rotation.
   - Created immutable administrative audit log ledger and self-service tenant export/purge flows.
 

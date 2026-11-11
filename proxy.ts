@@ -6,6 +6,7 @@ import {
   ROUTE_RATE_LIMITS,
   getClientIp,
 } from "@/modules/security/rate_limiter";
+import { generateCsrfToken, CSRF_COOKIE_NAME } from "@/modules/security/csrf";
 
 const PROTECTED_PREFIXES = [
   "/overview",
@@ -145,6 +146,17 @@ export async function proxy(request: NextRequest) {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
   );
+
+  // 6. Ensure CSRF Cookie is Present for Double-Submit State Mutations
+  if (!request.cookies.has(CSRF_COOKIE_NAME)) {
+    const { token } = generateCsrfToken("anonymous");
+    response.cookies.set(CSRF_COOKIE_NAME, token, {
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: false,
+    });
+  }
 
   return response;
 }

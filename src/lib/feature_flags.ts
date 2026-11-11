@@ -28,7 +28,7 @@ export const FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlagDefinition> = {
   },
   gmail_auto_sync: {
     key: "gmail_auto_sync",
-    description: "Automated Gmail receipt and invoice detection via OAuth envelope encryption.",
+    description: "Automated Gmail receipt and invoice detection via OAuth key derivation from a master secret.",
     defaultValue: false,
     stage: "alpha",
   },

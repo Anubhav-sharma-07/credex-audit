@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   encryptOAuthToken,
   decryptOAuthToken,
@@ -154,9 +154,17 @@ describe("SpendLens Security Test Suite", () => {
   });
 
   // ==========================================
-  // 2. Envelope Encryption & OAuth Security
+  // 2. Token Security (Key Derivation from Master Secret)
   // ==========================================
-  describe("OAuth Token Envelope Encryption (AES-256-GCM)", () => {
+  describe("OAuth Token Security (Key Derivation from Master Secret)", () => {
+    beforeEach(() => {
+      process.env.FLAG_GMAIL_AUTO_SYNC = "true";
+    });
+
+    afterEach(() => {
+      delete process.env.FLAG_GMAIL_AUTO_SYNC;
+    });
+
     const samplePayload: OAuthTokenPayload = {
       accessToken: "ya29.sample_google_access_token_super_secret",
       refreshToken: "1//0sample_refresh_token_very_sensitive",

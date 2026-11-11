@@ -28,6 +28,12 @@ interface NavItem {
   isComingSoon?: boolean;
 }
 
+interface WorkspaceSidebarProps {
+  workspaceName?: string;
+  userRole?: string;
+  userEmail?: string;
+}
+
 const PRIMARY_NAV: NavItem[] = [
   { label: "Overview", href: "/overview", icon: LayoutDashboard },
   { label: "Subscriptions", href: "/subscriptions", icon: Layers },
@@ -46,7 +52,11 @@ const ADMIN_NAV: NavItem[] = [
   { label: "Settings", href: "/admin/settings", icon: Settings, isComingSoon: true },
 ];
 
-export default function WorkspaceSidebar() {
+export default function WorkspaceSidebar({
+  workspaceName = "Primary Workspace",
+  userRole = "owner",
+  userEmail = "user@company.com",
+}: WorkspaceSidebarProps) {
   const pathname = usePathname();
 
   async function handleSignOut() {
@@ -106,9 +116,11 @@ export default function WorkspaceSidebar() {
         <div className="px-5 py-2.5 border-b border-neutral-7 bg-neutral-850">
           <p className="text-[10px] font-mono text-neutral-5 uppercase tracking-wider">Tenant Workspace</p>
           <div className="flex items-center justify-between mt-0.5">
-            <span className="text-xs font-semibold text-neutral-1 truncate">Acme Software Corp</span>
-            <span className="text-[10px] font-mono bg-neutral-800 text-savings border border-savings-border px-1.5 py-0.2 rounded-xs">
-              RLS Active
+            <span className="text-xs font-semibold text-neutral-1 truncate max-w-[140px]" title={workspaceName}>
+              {workspaceName}
+            </span>
+            <span className="text-[10px] font-mono bg-neutral-800 text-neutral-3 border border-neutral-7 px-1.5 py-0.2 rounded-xs capitalize">
+              {userRole}
             </span>
           </div>
         </div>
@@ -182,12 +194,14 @@ export default function WorkspaceSidebar() {
       <div className="p-3 border-t border-neutral-7 bg-neutral-850">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-7 h-7 rounded-xs bg-neutral-7 text-neutral-1 flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
-              CFO
+            <div className="w-7 h-7 rounded-xs bg-neutral-7 text-neutral-1 flex items-center justify-center text-[10px] font-mono font-bold shrink-0 uppercase">
+              {userEmail.slice(0, 2)}
             </div>
             <div className="truncate min-w-0">
-              <p className="text-xs font-semibold text-neutral-1 truncate">cfo@company.com</p>
-              <p className="text-[10px] text-neutral-5 truncate">Workspace Owner</p>
+              <p className="text-xs font-semibold text-neutral-1 truncate" title={userEmail}>
+                {userEmail}
+              </p>
+              <p className="text-[10px] text-neutral-5 truncate capitalize">{userRole} Member</p>
             </div>
           </div>
           <button

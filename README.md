@@ -52,7 +52,7 @@ flowchart TD
         AuditEngine["src/modules/audit<br/>(Pure Deterministic Engine & Pricing Catalog)"]
         WorkspaceService["src/modules/workspace<br/>(Subscriptions, TanStack Pagination, CSV Stream)"]
         AIService["src/modules/ai<br/>(Grounded AI Query Layer & Post-Validator)"]
-        SecurityService["src/modules/security<br/>(Envelope Encryption AES-256-GCM, Audit Ledger)"]
+        SecurityService["src/modules/security<br/>(Master Secret Key Derivation AES-256-GCM, Audit Ledger)"]
     end
 
     subgraph Storage["Postgres Tier (Supabase RLS)"]
@@ -131,7 +131,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `NEXT_PUBLIC_SUPABASE_URL` | Client + Server | **Yes** | Supabase REST/Postgres gateway URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client + Server | **Yes** | Public anon key for Row-Level Security authentication |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server Only | **Yes** | Admin service key for tenant management (never sent to client) |
-| `ENCRYPTION_MASTER_KEY` | Server Only | **Yes** | 64-character hex master key for AES-256-GCM envelope encryption |
+| `ENCRYPTION_MASTER_KEY` | Server Only | **Yes** | 64-character hex master key for AES-256-GCM token encryption via HKDF-SHA256 key derivation |
 | `CSRF_SECRET` | Server Only | **Yes** | 64-character hex secret for double-submit HMAC CSRF signatures |
 | `ANTHROPIC_API_KEY` | Server Only | Optional | Claude 3.5 API key for grounded plain-language insights |
 | `NEXT_PUBLIC_SENTRY_DSN` | Client + Server | Optional | Sentry crash reporting and error boundary telemetry |

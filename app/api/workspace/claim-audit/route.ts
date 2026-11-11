@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createSubscription } from "@/modules/workspace/subscriptions";
 import { TOOL_LABELS, PLAN_LABELS } from "@/lib/pricing";
@@ -7,6 +7,8 @@ import { checkRateLimit, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp
 import { markAuditClaimed } from "@/modules/security/retention";
 import { recordAuditLog } from "@/modules/security/audit_log";
 import { getSessionUser, requireWorkspaceMember, getUserWorkspace } from "@/lib/auth/server";
+import { assertMutationCsrfAndOrigin } from "@/modules/security/csrf";
+import { captureException } from "@/lib/sentry";
 
 const ClaimAuditSchema = z.object({
   auditId: z.string().max(100).optional(),
@@ -24,7 +26,7 @@ const ClaimAuditSchema = z.object({
   ).min(1).max(50),
 }).strict();
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   // 1. Rate Limiting Check
   const clientIp = getClientIp(request);
   const rateLimit = checkRateLimit(clientIp, "claim_audit_api", ROUTE_RATE_LIMITS.claimAudit);
@@ -41,7 +43,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Size Limit & Strict Schema Validation
+  // 3. Strict CSRF & Origin Verification on State Mutation
+  const csrfCheck = assertMutationCsrfAndOrigin(request, user);
+  if (!csrfCheck.allowed) {
+    return csrfCheck.errorResponse!;
+  }
+
+  // 4. Size Limit & Strict Schema Validation
   const validation = await parseAndValidateBody(request, ClaimAuditSchema, {
     maxSizeBytes: 64 * 1024,
     routeContext: "api/workspace/claim-audit",
@@ -110,6 +118,11 @@ export async function POST(request: Request) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to claim audit";
+    captureException(err, {
+      route: "api/workspace/claim-audit",
+      userId: user.id,
+      extra: { requestId },
+    });
     console.error(`[CLAIM_AUDIT_ERROR] [${requestId}]:`, msg);
     return NextResponse.json(
       { error: msg, requestId },

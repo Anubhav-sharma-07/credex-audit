@@ -16,7 +16,7 @@ interface WindowEntry {
   timestamps: number[];
 }
 
-// In-memory sliding window store (can be seamlessly swapped for Upstash Redis / Postgres)
+// In-memory sliding window store (used for tests and when Upstash Redis is unconfigured)
 const slidingWindowStore = new Map<string, WindowEntry>();
 
 // Default Rate Limit Configurations per Route
@@ -31,11 +31,78 @@ export const ROUTE_RATE_LIMITS = {
 } as const;
 
 /**
- * Evaluates rate limit for a given identifier using a sliding window algorithm.
- *
- * @param identifier - Client IP or Account / Workspace ID
- * @param routeName - Route identifier for distinct buckets
- * @param config - Window duration and maximum request ceiling
+ * Distributed rate limiter via Upstash Redis REST API.
+ * Guarantees atomicity across multi-region serverless instances without local state drift.
+ */
+async function checkUpstashRateLimit(
+  key: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult | null> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token || url.includes("placeholder")) return null;
+
+  try {
+    const redisKey = `ratelimit:${key}`;
+    const resp = await fetch(`${url}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        ["INCR", redisKey],
+        ["EXPIRE", redisKey, config.windowSeconds, "NX"],
+        ["TTL", redisKey],
+      ]),
+      cache: "no-store",
+    });
+
+    if (!resp.ok) return null;
+    const results = await resp.json();
+    const count = Number(results[0]?.result || 1);
+    const ttl = Number(results[2]?.result || config.windowSeconds);
+    const resetSeconds = Math.max(1, ttl);
+
+    if (count > config.maxRequests) {
+      return {
+        allowed: false,
+        limit: config.maxRequests,
+        remaining: 0,
+        resetSeconds,
+      };
+    }
+
+    return {
+      allowed: true,
+      limit: config.maxRequests,
+      remaining: Math.max(0, config.maxRequests - count),
+      resetSeconds,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Evaluates rate limit for a given identifier using distributed Upstash Redis if configured,
+ * with automatic fallback to an in-memory sliding window algorithm.
+ */
+export async function checkRateLimitAsync(
+  identifier: string,
+  routeName: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  const key = `${routeName}:${identifier}`;
+  const upstashResult = await checkUpstashRateLimit(key, config);
+  if (upstashResult) {
+    return upstashResult;
+  }
+  return checkRateLimit(identifier, routeName, config);
+}
+
+/**
+ * Synchronous in-memory rate limit check (sliding window).
  */
 export function checkRateLimit(
   identifier: string,
@@ -127,4 +194,3 @@ export function getClientIp(request: Request): string {
 export function resetRateLimits(): void {
   slidingWindowStore.clear();
 }
-

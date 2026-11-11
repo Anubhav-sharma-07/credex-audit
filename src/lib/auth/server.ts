@@ -51,15 +51,6 @@ export async function createServerSupabaseClient() {
  * Never trust a client-supplied token or proxy header alone.
  */
 export async function getSessionUser(): Promise<AuthUser | null> {
-  const isMockAuth = process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (isMockAuth) {
-    return {
-      id: "usr_mock_lead_dev",
-      email: "engineer@spendlens.demo",
-      role: "authenticated",
-    };
-  }
-
   try {
     const supabase = await createServerSupabaseClient();
     const { data: { user }, error } = await supabase.auth.getUser();
@@ -85,11 +76,6 @@ export async function requireWorkspaceMember(
   const user = await getSessionUser();
   if (!user) {
     throw new Error("Unauthorized: Sign in required.");
-  }
-
-  // Development/mock bypass when Supabase credentials are absent
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return { user, role: "owner" };
   }
 
   const supabase = await createServerSupabaseClient();

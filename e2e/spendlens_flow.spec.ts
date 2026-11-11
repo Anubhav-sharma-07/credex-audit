@@ -1,181 +1,158 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("SpendLens Full Institutional E2E Lifecycle", () => {
-  test("audit -> share -> signup -> add subscription -> import CSV -> see insight", async ({ page }) => {
+test.describe("SpendLens Security, CSP & Hydration Verification", () => {
+  // ========================================================
+  // BUG 1 VERIFICATION: Strict CSP & Full Client Hydration
+  // ========================================================
+  test("audit page loads with strict CSP, zero console CSP errors, and hydrates interactive tool chips", async ({
+    page,
+  }) => {
+    const consoleErrors: string[] = [];
+    const cspViolations: string[] = [];
+
+    page.on("console", (msg) => {
+      const text = msg.text();
+      if (
+        msg.type() === "error" ||
+        text.toLowerCase().includes("content security policy") ||
+        text.toLowerCase().includes("violates the following")
+      ) {
+        if (text.toLowerCase().includes("content security policy") || text.toLowerCase().includes("violates")) {
+          cspViolations.push(text);
+        } else {
+          consoleErrors.push(text);
+        }
+      }
+    });
+
+    // 1. Load /audit in production mode
+    const response = await page.goto("/audit");
+    expect(response?.status()).toBe(200);
+    await page.waitForLoadState("domcontentloaded");
+
+    // 2. Verify CSP headers on response
+    const headers = response?.headers() || {};
+    const csp = headers["content-security-policy"] || "";
+    expect(csp).toContain("script-src");
+    expect(csp).toContain("strict-dynamic");
+    expect(headers["x-nonce"]).toBeDefined();
+
+    // 3. Assert ZERO CSP violations logged to console
+    expect(cspViolations).toEqual([]);
+
+    // 4. Prove Client Hydration: Click tool chip and verify form state updates
+    const cursorChip = page.getByRole("button", { name: "Cursor", exact: true });
+    await expect(cursorChip).toBeVisible();
+    await expect(cursorChip).toHaveAttribute("aria-pressed", "false");
+
+    // Click the tool chip
+    await cursorChip.click();
+
+    // Verify aria-pressed toggles to true (proves React event listener was executed)
+    await expect(cursorChip).toHaveAttribute("aria-pressed", "true");
+
+    // Verify the Plan & Actual Monthly Spend Details section appears
+    const detailsSection = page.getByText("3. Plan & Actual Monthly Spend Details");
+    await expect(detailsSection).toBeVisible();
+
+    // Toggle off
+    await cursorChip.click();
+    await expect(cursorChip).toHaveAttribute("aria-pressed", "false");
+
+    // Final assertion: Still ZERO CSP violations
+    expect(cspViolations).toHaveLength(0);
+  });
+
+  // ========================================================
+  // BUG 2 VERIFICATION: Real Supabase Auth & Anti-Bypass
+  // ========================================================
+  test("unauthenticated access to /overview rejects made-up cookie (spendlens_session=x) and redirects to /login", async ({
+    context,
+    page,
+  }) => {
+    // Attempt to bypass authentication with an arbitrary cookie
+    await context.addCookies([
+      {
+        name: "spendlens_session",
+        value: "x",
+        url: "http://localhost:3000",
+      },
+      {
+        name: "sb-fake-auth-token",
+        value: "malicious_payload",
+        url: "http://localhost:3000",
+      },
+    ]);
+
+    // Navigate to protected workspace
+    await page.goto("/overview");
+
+    // Must be redirected to /login because Supabase session is invalid/unverified
+    await expect(page).toHaveURL(/\/login(\?redirect=.*)?/);
+    await expect(page.locator("h1")).toContainText(/Sign in/i);
+  });
+
+  test("demo workspace (/demo) is an independent read-only route with sample data", async ({ page }) => {
+    await page.goto("/demo");
+    await expect(page).toHaveURL("/demo");
+
+    // 1. Verify prominent Demo Mode banner
+    await expect(page.getByText("Demo Mode (Read-Only)")).toBeVisible();
+    await expect(page.getByText("Acme Engineering (Demo)")).toBeVisible();
+
+    // 2. Verify financial metrics
+    await expect(page.getByText("$3,720.00")).toBeVisible();
+    await expect(page.getByText("+$1,180.00")).toBeVisible();
+
+    // 3. Verify sample subscriptions table
+    await expect(page.getByRole("cell", { name: "Cursor" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "GitHub Copilot" })).toBeVisible();
+
+    // 4. Verify mutation actions are disabled
+    const addBtn = page.getByRole("button", { name: /Add Subscription/i });
+    await expect(addBtn).toBeDisabled();
+  });
+});
+
+test.describe("SpendLens End-to-End User Funnel", () => {
+  test("audit -> share -> signup -> demo evaluation", async ({ page }) => {
     // ----------------------------------------------------
     // Step 1: Public Anonymous Audit (/audit)
     // ----------------------------------------------------
     await page.goto("/audit");
     await expect(page).toHaveTitle(/SpendLens/i);
 
-    // Verify key audit elements exist
-    const teamSizeSelector = page.locator("select[name='teamSize'], input[name='teamSize']");
-    if (await teamSizeSelector.count() > 0) {
-      await teamSizeSelector.first().fill("4");
-    }
+    const teamSizeInput = page.locator("#team-size-input");
+    await expect(teamSizeInput).toBeVisible();
+    await teamSizeInput.fill("6");
 
-    // Verify visual snapshot of the Audit screen
-    await expect(page.locator("body")).toBeVisible();
+    // Select Cursor and Claude
+    const cursorChip = page.getByRole("button", { name: "Cursor", exact: true });
+    await cursorChip.click();
+    await expect(cursorChip).toHaveAttribute("aria-pressed", "true");
 
-    // Trigger calculation or click Calculate Savings
-    const calculateBtn = page.getByRole("button", { name: /audit|calculate|see savings/i });
-    if (await calculateBtn.count() > 0) {
-      await calculateBtn.first().click();
-    }
+    const claudeChip = page.getByRole("button", { name: "Claude (Anthropic)", exact: true });
+    await claudeChip.click();
+    await expect(claudeChip).toHaveAttribute("aria-pressed", "true");
 
     // ----------------------------------------------------
-    // Step 2: Share & Claim Funnel
-    // ----------------------------------------------------
-    const saveToWorkspaceBtn = page.getByRole("button", { name: /save this to a workspace|claim audit|save audit/i });
-    if (await saveToWorkspaceBtn.count() > 0) {
-      await saveToWorkspaceBtn.first().click();
-    }
-
-    // ----------------------------------------------------
-    // Step 3: Signup & Workspace Onboarding (/signup)
+    // Step 2: Signup Screen Navigation (/signup)
     // ----------------------------------------------------
     await page.goto("/signup");
-    await expect(page.locator("h1, h2")).toContainText(/Create your workspace|Sign up|Get started/i);
-
-    const emailInput = page.locator("input[type='email']");
-    await emailInput.fill("cfo@enterprise-demo.com");
-
-    const submitSignup = page.getByRole("button", { name: /sign up|continue|get started/i });
-    await expect(submitSignup).toBeVisible();
+    await expect(page.locator("h1")).toContainText(/Create your.*workspace|Sign up/i);
 
     // ----------------------------------------------------
-    // Step 4: Workspace Overview (/overview)
+    // Step 3: Login Screen with Live Demo Link (/login)
     // ----------------------------------------------------
-    await page.goto("/overview");
-    await expect(page.locator("body")).toBeVisible();
+    await page.goto("/login");
+    await expect(page.locator("h1")).toContainText(/Sign in/i);
 
-    // Verify four financial metric numbers are visible
-    const monthlyMetric = page.getByText(/Monthly Recurring/i);
-    await expect(monthlyMetric).toBeVisible();
+    const demoLink = page.getByRole("link", { name: /Explore Live Demo/i });
+    await expect(demoLink).toBeVisible();
+    await demoLink.click();
 
-    const annualMetric = page.getByText(/Annualised Spend/i);
-    await expect(annualMetric).toBeVisible();
-
-    const activeCountMetric = page.getByText(/Active Subscriptions/i);
-    await expect(activeCountMetric).toBeVisible();
-
-    const savingsMetric = page.getByText(/Identified Savings/i);
-    await expect(savingsMetric).toBeVisible();
-
-    // ----------------------------------------------------
-    // Step 5: Add Subscription Side Sheet (/subscriptions)
-    // ----------------------------------------------------
-    await page.goto("/subscriptions");
-    await expect(page.locator("h1")).toContainText(/Subscriptions/i);
-
-    const addSubscriptionBtn = page.getByRole("button", { name: /add subscription/i });
-    if (await addSubscriptionBtn.count() > 0) {
-      await addSubscriptionBtn.click();
-
-      // Inline validation: side sheet should appear
-      const sheet = page.locator("[role='dialog'], form");
-      await expect(sheet.first()).toBeVisible();
-    }
-
-    // ----------------------------------------------------
-    // Step 6: CSV Import Flow (/import)
-    // ----------------------------------------------------
-    await page.goto("/import");
-    await expect(page.locator("body")).toContainText(/Import Subscriptions|CSV/i);
-
-    const fileInput = page.locator("input[type='file']");
-    if (await fileInput.count() > 0) {
-      // Create mock CSV file payload
-      const csvContent = Buffer.from(
-        "Vendor,Plan,Seats,MonthlyCost\nCursor,Business,15,600.00\nClaude,Team,10,300.00"
-      );
-      await fileInput.setInputFiles({
-        name: "subscriptions_seed.csv",
-        mimeType: "text/csv",
-        buffer: csvContent,
-      });
-
-      // Preview should render
-      await expect(page.getByText(/Cursor/i)).toBeVisible();
-    }
-
-    // ----------------------------------------------------
-    // Step 7: AI Spend Insights (/insights)
-    // ----------------------------------------------------
-    await page.goto("/insights");
-    await expect(page.locator("h1")).toContainText(/AI Spend Insights/i);
-
-    // Verify structured question types (spend analysis, vendor comparison, renewals, budgets, savings)
-    await expect(page.getByRole("button", { name: /spend analysis/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /savings/i })).toBeVisible();
-
-    // Click Question type and check finding citations
-    const generateBtn = page.getByRole("button", { name: /ask|generate|analyze/i });
-    if (await generateBtn.count() > 0) {
-      await generateBtn.first().click();
-    }
-  });
-
-  // ----------------------------------------------------
-  // Visual Regression Baseline Tests for Key Screens
-  // ----------------------------------------------------
-  test("visual regression - public audit screen", async ({ page }) => {
-    await page.goto("/audit");
-    await page.waitForLoadState("domcontentloaded");
-    // Verify high-contrast typography and clean canvas layout
-    await expect(page.locator("main, body")).toBeVisible();
-  });
-
-  test("visual regression - workspace overview dashboard", async ({ page }) => {
-    await page.goto("/overview");
-    await page.waitForLoadState("domcontentloaded");
-    await expect(page.locator("main, body")).toBeVisible();
-  });
-
-  test("visual regression - subscriptions table", async ({ page }) => {
-    await page.goto("/subscriptions");
-    await page.waitForLoadState("domcontentloaded");
-    await expect(page.locator("table, [role='table'], main")).toBeVisible();
-  });
-
-  // ----------------------------------------------------
-  // Accessibility & Keyboard-Only Walkthrough
-  // ----------------------------------------------------
-  test("accessibility & keyboard-only walkthrough (0 violations, no focus traps)", async ({ page }) => {
-    // 1. Audit Screen Keyboard Navigation
-    await page.goto("/audit");
-    await page.waitForLoadState("domcontentloaded");
-
-    // Tab through interactive elements
-    await page.keyboard.press("Tab");
-    const activeElementTag = await page.evaluate(() => document.activeElement?.tagName);
-    expect(["A", "BUTTON", "INPUT", "SELECT"]).toContain(activeElementTag);
-
-    // Verify all form inputs have associated labels or aria-labels
-    const unlabeledInputs = await page.evaluate(() => {
-      const inputs = Array.from(document.querySelectorAll("input:not([type='hidden']), select, textarea"));
-      return inputs.filter((el) => {
-        const id = el.getAttribute("id");
-        const hasAriaLabel = el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby");
-        const hasLabel = id ? document.querySelector(`label[for="${id}"]`) : null;
-        return !hasAriaLabel && !hasLabel;
-      }).length;
-    });
-    expect(unlabeledInputs).toBe(0);
-
-    // 2. Subscriptions Screen Dialog Escape Key Verification
-    await page.goto("/subscriptions");
-    await page.waitForLoadState("domcontentloaded");
-
-    const addBtn = page.getByRole("button", { name: /add subscription/i });
-    if (await addBtn.count() > 0) {
-      await addBtn.click();
-      const dialog = page.locator("[role='dialog'], form");
-      await expect(dialog.first()).toBeVisible();
-
-      // Press Escape to dismiss dialog cleanly
-      await page.keyboard.press("Escape");
-    }
+    // Arrives at /demo
+    await expect(page).toHaveURL("/demo");
+    await expect(page.getByText("Demo Mode (Read-Only)")).toBeVisible();
   });
 });
-

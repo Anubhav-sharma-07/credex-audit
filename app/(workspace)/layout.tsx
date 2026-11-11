@@ -1,13 +1,19 @@
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth/server";
 import WorkspaceSidebar from "@/components/workspace/Sidebar";
 import CommandPalette from "@/components/workspace/CommandPalette";
 
 export const dynamic = "force-dynamic";
 
-export default function WorkspaceLayout({
+export default async function WorkspaceLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getSessionUser();
+  if (!user) {
+    redirect("/login");
+  }
   return (
     <div className="flex min-h-screen bg-canvas text-ink antialiased">
       {/* Accessible Skip Link for Screen Readers & Keyboard Operability */}

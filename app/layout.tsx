@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "SpendLens — Institutional AI Spend Intelligence & Audit",
@@ -10,15 +13,18 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://spendlens.demo"),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
       className="h-full antialiased font-sans"
+      nonce={nonce}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

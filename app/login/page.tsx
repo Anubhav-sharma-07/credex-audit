@@ -48,11 +48,7 @@ export default function LoginPage() {
     }
   }
 
-  function handleDemoSignIn() {
-    // Set mock demo session cookie and redirect to overview
-    document.cookie = "spendlens_session=active_demo_user; path=/; max-age=86400";
-    window.location.href = "/overview";
-  }
+
 
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -165,17 +161,16 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              {/* Demo Quick Sign-in for immediate evaluation */}
+              {/* Demo Live Evaluation Route */}
               <div className="pt-2 border-t border-border-subtle">
-                <button
-                  type="button"
-                  onClick={handleDemoSignIn}
-                  className="w-full py-2.5 px-4 bg-canvas-subtle hover:bg-canvas border border-border text-ink rounded-xs text-xs font-medium transition-standard flex items-center justify-center gap-1.5 min-h-[44px] cursor-pointer"
+                <Link
+                  href="/demo"
+                  className="w-full py-2.5 px-4 bg-canvas-subtle hover:bg-canvas border border-border text-ink rounded-xs text-xs font-medium transition-standard flex items-center justify-center gap-1.5 min-h-[44px]"
                 >
                   <Shield className="w-3.5 h-3.5 text-action-text" strokeWidth={1.75} />
-                  <span>Quick Demo Access (Instant)</span>
+                  <span>Explore Live Demo (Read-Only Sample)</span>
                   <ArrowRight className="w-3.5 h-3.5 text-ink-muted" strokeWidth={1.75} />
-                </button>
+                </Link>
               </div>
             </>
           )}

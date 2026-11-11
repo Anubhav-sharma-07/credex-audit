@@ -1,4 +1,4 @@
-export type WorkspaceRole = "owner" | "admin" | "member";
+export type WorkspaceRole = "owner" | "admin" | "finance" | "member" | "viewer";
 
 export type SubscriptionCategory = "ide_assistant" | "chat_assistant" | "api" | "general";
 

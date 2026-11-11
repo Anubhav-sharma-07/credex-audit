@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { parseAndValidateBody } from "@/modules/security/request_validation";
 import { checkRateLimit, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp } from "@/modules/security/rate_limiter";
 import { trackAnonymousAudit } from "@/modules/security/retention";
+import { getAuditRepository } from "@/modules/audit/repository";
+import { createClient } from "@supabase/supabase-js";
 
 const AuditToolItemSchema = z.object({
-  tool: z.string().max(50),
-  plan: z.string().max(50).optional().default("default"),
+  tool: z.string().min(1).max(100),
+  plan: z.string().min(1).max(100).optional().default("default"),
   monthlySpend: z.number().min(0).optional(),
   currentMonthlySpend: z.number().min(0).optional(),
   seats: z.number().int().min(0).optional(),
@@ -28,32 +29,6 @@ const AuditRequestSchema = z.object({
   aiSummary: z.string().max(5000).optional(),
   tools: z.array(AuditToolItemSchema).min(1).max(50),
 }).strict();
-
-interface SupabaseClient {
-  from: (table: string) => {
-    insert: (values: Record<string, unknown>) => {
-      single: () => Promise<{ data: { id: string } | null; error: Error | null }>;
-    };
-  };
-}
-
-function getSupabaseClient(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && key) {
-    if (typeof globalThis.WebSocket === "undefined") {
-      globalThis.WebSocket = class DummyWebSocket {} as unknown as typeof WebSocket;
-    }
-    return createClient(url, key, { auth: { persistSession: false } }) as unknown as SupabaseClient;
-  }
-  return {
-    from: () => ({
-      insert: () => ({
-        single: async () => ({ data: { id: `aud_${Date.now()}` }, error: null }),
-      }),
-    }),
-  } as unknown as SupabaseClient;
-}
 
 export async function POST(request: NextRequest) {
   // 1. Rate Limiting Check
@@ -76,40 +51,43 @@ export async function POST(request: NextRequest) {
   const { data, requestId } = validation;
 
   try {
-    // Recompute and verify financial totals server-side (never blindly store client-supplied totals)
-    const verifiedMonthlySpend = data.tools.reduce(
-      (sum, t) => sum + (t.monthlySpend ?? t.currentMonthlySpend ?? 0),
-      0
-    );
-    const verifiedMonthlySavings = Math.min(
-      data.totalMonthlySavings,
-      verifiedMonthlySpend
-    );
-    const verifiedAnnualSavings = verifiedMonthlySavings * 12;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    let supabaseClient = undefined;
 
-    const supabase = getSupabaseClient();
-    const { data: record, error } = await supabase.from("audits").insert({
-      tool_results: data.tools,
-      summary: data.summary || data.aiSummary || "",
-      team_size: data.teamSize,
-      use_case: data.useCase,
-      total_monthly_spend: verifiedMonthlySpend,
-      total_monthly_savings: verifiedMonthlySavings,
-      total_annual_savings: verifiedAnnualSavings,
-    }).single();
-
-    if (error) {
-      console.error(`[AUDIT_PERSIST_ERROR] [${requestId}]:`, error.message);
-      return NextResponse.json({ error: "Failed to persist audit snapshot", requestId }, { status: 500 });
+    if (url && key && !url.includes("placeholder")) {
+      if (typeof globalThis.WebSocket === "undefined") {
+        globalThis.WebSocket = class DummyWebSocket {} as unknown as typeof WebSocket;
+      }
+      supabaseClient = createClient(url, key, { auth: { persistSession: false } });
     }
 
-    const auditId = record?.id || `aud_${Date.now()}`;
-    trackAnonymousAudit(auditId, data.teamSize);
+    const repo = getAuditRepository(supabaseClient);
 
-    return NextResponse.json({ id: auditId, token: auditId, requestId }, { status: 200 });
+    // Run authoritative server calculation & persist
+    const result = await repo.create({
+      teamSize: data.teamSize,
+      useCase: data.useCase,
+      tools: data.tools,
+      summary: data.summary || data.aiSummary,
+    });
+
+    trackAnonymousAudit(result.id, data.teamSize);
+
+    return NextResponse.json({
+      id: result.id,
+      shareToken: result.shareToken,
+      token: result.shareToken,
+      totals: {
+        totalMonthlySpend: result.record.totalMonthlySpend,
+        totalMonthlySavings: result.record.totalMonthlySavings,
+        totalAnnualSavings: result.record.totalAnnualSavings,
+      },
+      requestId,
+    }, { status: 200 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal audit error";
     console.error(`[AUDIT_ERROR] [${requestId}]:`, msg);
-    return NextResponse.json({ error: "Internal server error", requestId }, { status: 500 });
+    return NextResponse.json({ error: "Failed to persist audit snapshot", requestId }, { status: 500 });
   }
 }

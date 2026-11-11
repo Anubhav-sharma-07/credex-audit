@@ -6,10 +6,11 @@ import { parseAndValidateBody } from "@/modules/security/request_validation";
 import { checkRateLimit, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp } from "@/modules/security/rate_limiter";
 import { markAuditClaimed } from "@/modules/security/retention";
 import { recordAuditLog } from "@/modules/security/audit_log";
+import { getSessionUser, requireWorkspaceMember, getUserWorkspace } from "@/lib/auth/server";
 
 const ClaimAuditSchema = z.object({
   auditId: z.string().max(100).optional(),
-  workspaceId: z.string().max(100).default("ws_default"),
+  workspaceId: z.string().max(100).optional(),
   teamSize: z.number().int().min(1).max(10000).default(4),
   toolResults: z.array(
     z.object({
@@ -31,7 +32,16 @@ export async function POST(request: Request) {
     return createRateLimitResponse(rateLimit);
   }
 
-  // 2. Size Limit & Strict Schema Validation
+  // 2. Authentication Check
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized: Active session required to claim an audit into a workspace." },
+      { status: 401 }
+    );
+  }
+
+  // 3. Size Limit & Strict Schema Validation
   const validation = await parseAndValidateBody(request, ClaimAuditSchema, {
     maxSizeBytes: 64 * 1024,
     routeContext: "api/workspace/claim-audit",
@@ -44,28 +54,35 @@ export async function POST(request: Request) {
   const { data, requestId } = validation;
 
   try {
-    const { workspaceId, teamSize, toolResults, auditId } = data;
+    let targetWorkspaceId = data.workspaceId;
+    if (!targetWorkspaceId) {
+      const userWs = await getUserWorkspace(user.id);
+      targetWorkspaceId = userWs?.workspaceId || "00000000-0000-0000-0000-000000000001";
+    }
+
+    // Enforce workspace membership with write permission
+    await requireWorkspaceMember(targetWorkspaceId, ["owner", "admin", "finance", "member"]);
+
+    const { teamSize, toolResults, auditId } = data;
     const createdSubs = [];
 
     for (const tool of toolResults) {
-      const isIde = ["cursor", "copilot", "github_copilot", "windsurf"].includes(tool.tool.toLowerCase());
-      const category = isIde ? "ide_assistant" : "chat_assistant";
+      const vendorName = TOOL_LABELS[tool.tool as keyof typeof TOOL_LABELS] || tool.tool;
+      const planName = PLAN_LABELS[tool.plan as keyof typeof PLAN_LABELS] || tool.plan;
 
-      const vendorName = (TOOL_LABELS as Record<string, string>)[tool.tool] || tool.tool;
-      const planName = (PLAN_LABELS as Record<string, string>)[tool.plan] || tool.plan;
-
-      const sub = await createSubscription(workspaceId, {
+      const sub = await createSubscription(targetWorkspaceId, {
         vendorName,
+        toolId: tool.tool.toLowerCase().replace(/\s+/g, "_"),
         planName,
-        category,
+        category: "ide_assistant",
         seats: teamSize,
         costMinor: Math.round(tool.currentMonthlySpend * 100),
+        currency: "USD",
         billingFrequency: "monthly",
-        renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        ownerEmail: "admin@spendlens.demo",
-        decisionStatus: (tool.monthlySavings || 0) > 0 ? "review" : "keep",
-        notes: `Converted from public audit. Projected monthly savings: $${(tool.monthlySavings || 0).toFixed(2)}/mo.`,
+        decisionStatus: (tool.monthlySavings && tool.monthlySavings > 0) ? "review" : "keep",
+        notes: tool.reason ? `Imported from audit: ${tool.reason}` : "Imported from anonymous audit calculation",
       });
+
       createdSubs.push(sub);
     }
 
@@ -73,30 +90,30 @@ export async function POST(request: Request) {
       markAuditClaimed(auditId);
     }
 
-    // Record sensitive operation in audit log
     await recordAuditLog({
-      workspaceId,
-      actorId: "usr_lead_dev",
-      actorEmail: "admin@spendlens.demo",
-      action: "subscription_create",
-      targetId: auditId || "claimed_audit_batch",
+      workspaceId: targetWorkspaceId,
+      actorId: user.id,
+      actorEmail: user.email,
+      action: "csv_import",
+      targetId: auditId || "direct_audit_claim",
       ipAddress: clientIp,
-      userAgent: request.headers.get("user-agent") || "unknown",
-      metadata: { convertedCount: createdSubs.length, toolCount: toolResults.length },
+      userAgent: (request as unknown as { headers: Headers }).headers.get("user-agent") || "unknown",
+      metadata: { importedCount: createdSubs.length, source: "anonymous_audit_claim" },
     });
 
     return NextResponse.json({
       success: true,
-      convertedCount: createdSubs.length,
+      importedCount: createdSubs.length,
+      workspaceId: targetWorkspaceId,
       subscriptions: createdSubs,
       requestId,
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Failed to convert audit into workspace subscriptions";
-    console.error(`[CLAIM_AUDIT_ERROR] [${requestId}]:`, message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Failed to claim audit";
+    console.error(`[CLAIM_AUDIT_ERROR] [${requestId}]:`, msg);
     return NextResponse.json(
-      { error: "Failed to claim audit into workspace", requestId },
-      { status: 500 }
+      { error: msg, requestId },
+      { status: msg.includes("Access denied") || msg.includes("Forbidden") ? 403 : 500 }
     );
   }
 }

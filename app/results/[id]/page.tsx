@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useParams } from "next/navigation";
 import {
   Link2,
@@ -15,16 +14,6 @@ import Link from "next/link";
 import type { AuditRecord, ToolAuditResult } from "@/types";
 import { formatCurrency } from "@/lib/formatters";
 
-if (typeof globalThis.WebSocket === "undefined") {
-  globalThis.WebSocket = class DummyWebSocket {} as unknown as typeof WebSocket;
-}
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: false },
-});
-
 export default function ResultsPage() {
   const { id } = useParams();
   const [audit, setAudit] = useState<AuditRecord | null>(null);
@@ -34,14 +23,20 @@ export default function ResultsPage() {
   useEffect(() => {
     if (!id) return;
     async function loadAudit() {
-      const { data, error } = await supabase
-        .from("audits")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) console.error(error);
-      else setAudit(data);
-      setLoading(false);
+      try {
+        const res = await fetch(`/api/audit/${id}`);
+        if (res.ok) {
+          const json = await res.json();
+          setAudit(json.audit);
+        } else {
+          setAudit(null);
+        }
+      } catch (err) {
+        console.error("Failed to load audit:", err);
+        setAudit(null);
+      } finally {
+        setLoading(false);
+      }
     }
     loadAudit();
   }, [id]);

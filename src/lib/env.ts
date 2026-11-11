@@ -36,6 +36,30 @@ const ServerEnvSchema = z.object({
   GROQ_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.NODE_ENV === "production") {
+    if (!data.NEXT_PUBLIC_SUPABASE_URL || data.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["NEXT_PUBLIC_SUPABASE_URL"],
+        message: "Production deployment requires a valid, non-placeholder NEXT_PUBLIC_SUPABASE_URL.",
+      });
+    }
+    if (!data.NEXT_PUBLIC_SUPABASE_ANON_KEY || data.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes("placeholder")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+        message: "Production deployment requires a valid, non-placeholder NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      });
+    }
+    if (!data.SUPABASE_SERVICE_ROLE_KEY && !data.DATABASE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["SUPABASE_SERVICE_ROLE_KEY"],
+        message: "Production deployment requires SUPABASE_SERVICE_ROLE_KEY or DATABASE_URL for server-side persistence.",
+      });
+    }
+  }
 });
 
 export type ServerEnv = z.infer<typeof ServerEnvSchema>;

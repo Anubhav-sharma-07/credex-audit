@@ -139,3 +139,12 @@ This engineering log documents the actual chronological development of SpendLens
   - Built `/api/health` heartbeat and `/api/vitals` Web Vitals telemetry endpoints.
   - Created PostgreSQL migrations with verified composite indexes for the three hottest database queries.
   - Authored database backup/restore runbook ([`docs/database.md`](docs/database.md)) and multi-environment feature flags guide ([`docs/environments.md`](docs/environments.md)).
+
+### Milestone 5: Institutional Multi-Tenant Postgres Architecture & Server-Authoritative Audits
+- **Repository Architecture:** Implemented decoupled repository interfaces (`SubscriptionRepository`, `AuditLogRepository`, `AuditRepository`) with production `Supabase*` adapters and mock `InMemory*` adapters used exclusively during unit testing.
+- **Boot Validation:** Added boot-time schema checks in `src/lib/env.ts` requiring valid Supabase and database secrets in production mode.
+- **Server Components Migration:** Refactored all workspace pages (`/overview`, `/subscriptions`, `/subscriptions/[id]`, `/renewals`, `/vendors`, `/reports`, `/insights`, `/import`, `/admin/audit-logs`) from `"use client"` to Server Components executing session-bound queries with Supabase RLS policies. Interactive state isolated to lightweight Client Component islands (`OverviewClient`, `SubscriptionsClient`, etc.).
+- **5 Institutional RBAC Roles:** Expanded workspace membership roles to `owner`, `admin`, `finance`, `member`, and `viewer` with `viewer` strictly read-only. Added two-tenant isolation integration test suite (`src/__tests__/rls_two_tenant.test.ts`).
+- **Server-Authoritative Calculations:** Recomputed public audit spend and savings strictly through `runAuditEngine` on the server before persisting to PostgreSQL; rejected client-side mathematical claims.
+- **Audit Token Hardening:** Replaced timestamp-based IDs with cryptographically secure 128-bit `share_token` random strings and dropped open public `SELECT` policies from the `audits` table.
+- **Lead Submissions Schema Alignment:** Routed `/api/lead` submissions to `lead_submissions` with mandatory explicit consent checks and real HTTP 500 error propagation on database failures. Dropped legacy `leads` table.

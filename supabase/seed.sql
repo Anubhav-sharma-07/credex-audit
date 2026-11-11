@@ -1,7 +1,8 @@
 -- SpendLens Seed Script
 -- Realistic finance-grade fixtures for testing, development, and preview deployments.
+-- Multi-tenant: Tenant 1 (Acme) & Tenant 2 (Beta Corp), testing all 5 roles.
 
--- 1. Create Default Workspace
+-- 1. Create Default Workspace (Tenant 1: Acme Engineering Corp)
 INSERT INTO workspaces (id, name, slug, monthly_budget_minor, created_at)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
@@ -13,15 +14,36 @@ VALUES (
   name = EXCLUDED.name,
   monthly_budget_minor = EXCLUDED.monthly_budget_minor;
 
--- 2. Create Members
+-- 2. Create Second Workspace (Tenant 2: Beta Innovations)
+INSERT INTO workspaces (id, name, slug, monthly_budget_minor, created_at)
+VALUES (
+  '00000000-0000-0000-0000-000000000002',
+  'Beta Innovations',
+  'beta-innovations',
+  800000, -- $8,000.00 / month budget
+  NOW()
+) ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  monthly_budget_minor = EXCLUDED.monthly_budget_minor;
+
+-- 3. Create Tenant 1 Members (All 5 Roles: owner, admin, finance, member, viewer)
 INSERT INTO workspace_members (workspace_id, user_id, role, created_at)
 VALUES
   ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000010', 'owner', NOW()),
   ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000011', 'admin', NOW()),
-  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'member', NOW())
+  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000013', 'finance', NOW()),
+  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'member', NOW()),
+  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000014', 'viewer', NOW())
 ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role;
 
--- 3. Realistic Subscriptions
+-- 4. Create Tenant 2 Members
+INSERT INTO workspace_members (workspace_id, user_id, role, created_at)
+VALUES
+  ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000020', 'owner', NOW()),
+  ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000021', 'viewer', NOW())
+ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role;
+
+-- 5. Tenant 1 Subscriptions (Realistic Upcoming Renewals within 30-day window)
 INSERT INTO subscriptions (
   id, workspace_id, vendor_name, tool_id, plan_name, category,
   seats, cost_minor, currency, billing_frequency, renewal_date,
@@ -38,7 +60,7 @@ INSERT INTO subscriptions (
     80000, -- $800.00 / mo ($40/seat)
     'USD',
     'monthly',
-    CURRENT_DATE + INTERVAL '7 days',
+    CURRENT_DATE + INTERVAL '5 days',
     'lead-architect@acme.corp',
     'active',
     'review',
@@ -55,7 +77,7 @@ INSERT INTO subscriptions (
     28500, -- $285.00 / mo ($19/seat)
     'USD',
     'monthly',
-    CURRENT_DATE + INTERVAL '24 days',
+    CURRENT_DATE + INTERVAL '12 days',
     'vp-eng@acme.corp',
     'active',
     'undecided',
@@ -72,7 +94,7 @@ INSERT INTO subscriptions (
     36000, -- $360.00 / mo ($30/seat)
     'USD',
     'monthly',
-    CURRENT_DATE + INTERVAL '45 days',
+    CURRENT_DATE + INTERVAL '18 days',
     'ai-lead@acme.corp',
     'active',
     'keep',
@@ -89,7 +111,7 @@ INSERT INTO subscriptions (
     25000, -- $250.00 / mo ($25/seat)
     'USD',
     'monthly',
-    CURRENT_DATE + INTERVAL '80 days',
+    CURRENT_DATE + INTERVAL '26 days',
     'product@acme.corp',
     'active',
     'cancel',
@@ -106,62 +128,35 @@ INSERT INTO subscriptions (
     215000, -- $2,150.00 / mo
     'USD',
     'monthly',
-    CURRENT_DATE + INTERVAL '12 days',
+    CURRENT_DATE + INTERVAL '40 days',
     'infra@acme.corp',
     'active',
     'keep',
     'Direct backend production inference.'
-  ),
+  )
+ON CONFLICT (id) DO NOTHING;
+
+-- 6. Tenant 2 Subscriptions (Completely Isolated)
+INSERT INTO subscriptions (
+  id, workspace_id, vendor_name, tool_id, plan_name, category,
+  seats, cost_minor, currency, billing_frequency, renewal_date,
+  owner_email, status, decision_status, notes
+) VALUES
   (
-    '00000000-0000-0000-0000-000000000106',
-    '00000000-0000-0000-0000-000000000001',
-    'Anthropic API',
-    'anthropic-api',
-    'Scale Tier',
-    'api',
-    1,
-    180000, -- $1,800.00 / mo
+    '00000000-0000-0000-0000-000000000201',
+    '00000000-0000-0000-0000-000000000002',
+    'Cursor',
+    'cursor',
+    'Pro',
+    'ide_assistant',
+    5,
+    10000, -- $100.00 / mo
     'USD',
     'monthly',
-    CURRENT_DATE + INTERVAL '18 days',
-    'infra@acme.corp',
+    CURRENT_DATE + INTERVAL '10 days',
+    'cto@beta.corp',
     'active',
     'keep',
-    'Sonnet 3.5 production API workloads.'
+    'Beta core IDE licenses'
   )
 ON CONFLICT (id) DO NOTHING;
-
--- 4. Price History Tracking
-INSERT INTO price_history (subscription_id, effective_date, cost_minor, currency, reason)
-VALUES
-  ('00000000-0000-0000-0000-000000000101', CURRENT_DATE - INTERVAL '6 months', 60000, 'USD', 'Initial 15 seats tier'),
-  ('00000000-0000-0000-0000-000000000101', CURRENT_DATE - INTERVAL '1 month', 80000, 'USD', 'Expanded to 20 seats')
-ON CONFLICT DO NOTHING;
-
--- 5. Seed Audit Logs
-INSERT INTO audit_logs (id, workspace_id, actor_id, actor_email, action, target_id, ip_address, user_agent, metadata)
-VALUES
-  (
-    'log_seed_001',
-    '00000000-0000-0000-0000-000000000001',
-    '00000000-0000-0000-0000-000000000010',
-    'admin@acme.corp',
-    'subscription_create',
-    '00000000-0000-0000-0000-000000000101',
-    '192.168.1.10',
-    'Mozilla/5.0 SpendLens/1.0',
-    '{"vendor": "Cursor", "seats": 20, "cost": 80000}'::jsonb
-  ),
-  (
-    'log_seed_002',
-    '00000000-0000-0000-0000-000000000001',
-    '00000000-0000-0000-0000-000000000010',
-    'admin@acme.corp',
-    'role_change',
-    '00000000-0000-0000-0000-000000000011',
-    '192.168.1.10',
-    'Mozilla/5.0 SpendLens/1.0',
-    '{"previousRole": "member", "newRole": "admin"}'::jsonb
-  )
-ON CONFLICT (id) DO NOTHING;
-

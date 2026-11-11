@@ -6,8 +6,10 @@ import { runAuditEngine } from "@/modules/audit";
 import type { ToolId } from "@/modules/audit/types";
 import { parseAndValidateBody } from "@/modules/security/request_validation";
 import { checkRateLimit, createRateLimitResponse, ROUTE_RATE_LIMITS, getClientIp } from "@/modules/security/rate_limiter";
+import { getSessionUser, requireWorkspaceMember, getUserWorkspace } from "@/lib/auth/server";
 
 const QuestionRequestSchema = z.object({
+  workspaceId: z.string().optional(),
   questionType: z.enum([
     "spend_analysis",
     "vendor_comparison",
@@ -25,7 +27,16 @@ export async function POST(request: Request) {
     return createRateLimitResponse(rateLimit);
   }
 
-  // 2. Size Limit & Strict Schema Validation
+  // 2. Authentication Check
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized: Active session required to generate AI insights." },
+      { status: 401 }
+    );
+  }
+
+  // 3. Size Limit & Strict Schema Validation
   const validation = await parseAndValidateBody(request, QuestionRequestSchema, {
     maxSizeBytes: 32 * 1024,
     routeContext: "api/insights",
@@ -39,11 +50,24 @@ export async function POST(request: Request) {
 
   try {
     const { questionType } = data;
-    const workspaceId = "ws_default";
-    const userId = "usr_current_user";
+    
+    // Resolve workspace and enforce tenant membership
+    let targetWorkspaceId = data.workspaceId;
+    if (!targetWorkspaceId) {
+      const userWs = await getUserWorkspace(user.id);
+      targetWorkspaceId = userWs?.workspaceId || "00000000-0000-0000-0000-000000000001";
+    }
+
+    await requireWorkspaceMember(targetWorkspaceId, [
+      "owner",
+      "admin",
+      "finance",
+      "member",
+      "viewer",
+    ]);
 
     // 1. Fetch workspace subscriptions
-    const subResult = await listSubscriptions(workspaceId, { pageSize: 100 });
+    const subResult = await listSubscriptions(targetWorkspaceId, { pageSize: 100 });
     const subscriptions = subResult.data;
 
     // 2. Run deterministic audit engine to produce structured findings
@@ -82,8 +106,8 @@ export async function POST(request: Request) {
 
     // 3. Ask AI layer with strict read-only finding citations
     const result = await answerAIQuestion({
-      workspaceId,
-      userId,
+      workspaceId: targetWorkspaceId,
+      userId: user.id,
       questionType,
       findings: structuredFindings,
       monthlySpendUsd: totalMonthlySpendMinor / 100,
@@ -103,8 +127,8 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "Error generating AI insights";
     console.error(`[INSIGHTS_ERROR] [${requestId}]:`, message);
     return NextResponse.json(
-      { error: "Failed to generate AI insights", requestId },
-      { status: 500 }
+      { error: message || "Failed to generate AI insights", requestId },
+      { status: error instanceof Error && error.message.includes("Access denied") ? 403 : 500 }
     );
   }
 }

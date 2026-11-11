@@ -2,40 +2,55 @@ import { NextRequest, NextResponse } from "next/server";
 import { exportWorkspaceData } from "@/modules/security/retention";
 import { recordAuditLog } from "@/modules/security/audit_log";
 import { getClientIp } from "@/modules/security/rate_limiter";
-import type { WorkspaceRole } from "@/modules/workspace/types";
+import { getSessionUser, requireWorkspaceMember, getUserWorkspace } from "@/lib/auth/server";
 
 export async function GET(request: NextRequest) {
-  const workspaceId = request.nextUrl.searchParams.get("workspaceId") || "ws_default";
+  let workspaceId = request.nextUrl.searchParams.get("workspaceId");
+  if (!workspaceId) {
+    const user = await getSessionUser();
+    if (user) {
+      const userWs = await getUserWorkspace(user.id);
+      workspaceId = userWs?.workspaceId || "00000000-0000-0000-0000-000000000001";
+    } else {
+      workspaceId = "00000000-0000-0000-0000-000000000001";
+    }
+  }
   return handleExport(request, workspaceId);
 }
 
 export async function POST(request: NextRequest) {
-  let workspaceId = "ws_default";
+  let workspaceId = "00000000-0000-0000-0000-000000000001";
   try {
     const body = await request.json();
     if (body && typeof body.workspaceId === "string") {
       workspaceId = body.workspaceId;
     }
   } catch {
-    // Default to searchParams or ws_default
-    workspaceId = request.nextUrl.searchParams.get("workspaceId") || "ws_default";
+    workspaceId = request.nextUrl.searchParams.get("workspaceId") || "00000000-0000-0000-0000-000000000001";
   }
   return handleExport(request, workspaceId);
 }
 
 async function handleExport(request: NextRequest, workspaceId: string) {
-  // In demo / test environment, simulate authenticated owner role
-  const callerRole: WorkspaceRole = "owner";
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized: Active session required to export workspace data." },
+      { status: 401 }
+    );
+  }
+
   const clientIp = getClientIp(request);
   const requestId = `req_exp_${Date.now()}`;
 
   try {
+    const { role: callerRole } = await requireWorkspaceMember(workspaceId, ["owner", "admin", "finance"]);
     const exportedData = await exportWorkspaceData(workspaceId, callerRole);
 
     await recordAuditLog({
       workspaceId,
-      actorId: "usr_lead_dev",
-      actorEmail: "admin@spendlens.demo",
+      actorId: user.id,
+      actorEmail: user.email,
       action: "data_export",
       targetId: workspaceId,
       ipAddress: clientIp,
@@ -49,14 +64,18 @@ async function handleExport(request: NextRequest, workspaceId: string) {
         requestId,
       },
       {
+        status: 200,
         headers: {
-          "Content-Disposition": `attachment; filename="spendlens-export-${workspaceId}-${new Date().toISOString().slice(0, 10)}.json"`,
+          "Content-Disposition": `attachment; filename="spendlens-export-${workspaceId}-${Date.now()}.json"`,
         },
       }
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Export failed";
-    return NextResponse.json({ error: message, requestId }, { status: 403 });
+    const message = error instanceof Error ? error.message : "Failed to export data";
+    console.error(`[EXPORT_ERROR] [${requestId}]:`, message);
+    return NextResponse.json(
+      { error: message, requestId },
+      { status: message.includes("Access denied") || message.includes("Forbidden") ? 403 : 500 }
+    );
   }
 }
-

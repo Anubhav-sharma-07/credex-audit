@@ -61,17 +61,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { error } = await supabase.from("leads").insert({
-      audit_id: data.auditId,
-      email: data.email,
-      company_name: data.companyName || null,
-      role: data.role || null,
-      team_size: data.teamSize || null,
-    });
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (url && !url.includes("placeholder")) {
+      const { error } = await supabase.from("lead_submissions").insert({
+        audit_id: data.auditId,
+        email: data.email,
+        company_name: data.companyName || null,
+        role: data.role || null,
+        consent_given: hasConsent,
+      });
 
-    if (error) {
-      console.error(`[LEAD_PERSIST_ERROR] [${requestId}]:`, error.message);
-      // Fallback in demo without failing the user
+      if (error) {
+        console.error(`[LEAD_PERSIST_ERROR] [${requestId}]:`, error.message);
+        return NextResponse.json(
+          { error: "Failed to persist lead submission in database", requestId },
+          { status: 500 }
+        );
+      }
     }
 
     // Record audit log entry (sanitized, no raw personal email logged)

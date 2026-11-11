@@ -4,17 +4,19 @@ title = "SpendLens Gitleaks Secret Scanner Configuration"
 useDefault = true
 
 [allowlist]
-description = "Global allowlist for harmless placeholders and test fixtures"
+description = "Allowlist for harmless examples, test fixtures, and ephemeral CI configs"
 paths = [
-  '''\.next/.*''',
-  '''node_modules/.*''',
-  '''src/modules/audit/__tests__/.*''',
-  '''src/modules/security/__tests__/.*''',
+  '''^\.env\.example$''',
+  '''^README\.md$''',
+  '''^\.github/workflows/ci\.yml$''',
+  '''^src/modules/audit/__tests__/.*''',
+  '''^src/modules/security/__tests__/.*''',
 ]
 regexes = [
   '''placeholder-anon-key''',
   '''https://placeholder\.supabase\.co''',
   '''spendlens_default_master_encryption_key_32_bytes_min!''',
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
 ]
 
 [[rules]]

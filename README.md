@@ -103,8 +103,9 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 NEXT_PUBLIC_SUPABASE_URL="https://mock.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="mock-anon-key"
 SUPABASE_SERVICE_ROLE_KEY="mock-service-role-key"
-ENCRYPTION_MASTER_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-CSRF_SECRET="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+# Generate 64-character hex keys with: openssl rand -hex 32
+ENCRYPTION_MASTER_KEY=
+CSRF_SECRET=
 ```
 
 ### 3. Verify Local Build & Test Suite

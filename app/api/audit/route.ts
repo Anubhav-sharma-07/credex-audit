@@ -41,7 +41,10 @@ function getSupabaseClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (url && key) {
-    return createClient(url, key) as unknown as SupabaseClient;
+    if (typeof globalThis.WebSocket === "undefined") {
+      globalThis.WebSocket = class DummyWebSocket {} as unknown as typeof WebSocket;
+    }
+    return createClient(url, key, { auth: { persistSession: false } }) as unknown as SupabaseClient;
   }
   return {
     from: () => ({

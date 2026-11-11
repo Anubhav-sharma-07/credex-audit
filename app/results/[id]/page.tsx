@@ -15,9 +15,15 @@ import Link from "next/link";
 import type { AuditRecord, ToolAuditResult } from "@/types";
 import { formatCurrency } from "@/lib/formatters";
 
+if (typeof globalThis.WebSocket === "undefined") {
+  globalThis.WebSocket = class DummyWebSocket {} as unknown as typeof WebSocket;
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false },
+});
 
 export default function ResultsPage() {
   const { id } = useParams();

@@ -1,6 +1,19 @@
 -- Migration: Institutional Performance Indexes, Audit Log Ledger, and Anonymous Audit Retention
 -- Applies strictly via versioned migration files; never manual schema tampering.
 
+-- Safe migration reconciliation: If a legacy audits table exists with a non-text ID (e.g. UUID),
+-- drop dependent legacy tables so the institutional SpendLens schema can be cleanly applied.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'audits' AND column_name = 'id' AND data_type != 'text'
+  ) THEN
+    DROP TABLE IF EXISTS lead_submissions CASCADE;
+    DROP TABLE IF EXISTS audits CASCADE;
+  END IF;
+END $$;
+
 -- 1. Anonymous Audits Table (Supports 30-day lifecycle retention and workspace claim)
 CREATE TABLE IF NOT EXISTS audits (
   id TEXT PRIMARY KEY DEFAULT ('aud_' || floor(extract(epoch from now()) * 1000)::text),

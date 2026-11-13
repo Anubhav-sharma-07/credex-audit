@@ -108,7 +108,7 @@ function SignupContent() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-ink flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <main id="main-content" className="min-h-screen bg-canvas text-ink flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       {/* Header with Theme Toggle */}
       <div className="absolute top-4 right-4">
         <ThemeToggle />
@@ -278,7 +278,7 @@ function SignupContent() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

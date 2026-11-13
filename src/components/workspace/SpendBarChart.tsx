@@ -47,10 +47,10 @@ export default function SpendBarChart({
       {/* Header with Table Toggle for Accessibility */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-3">
         <div>
-          <h3 className="text-sm font-bold text-ink flex items-center gap-2">
+          <h2 className="text-sm font-bold text-ink flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-ink-muted" strokeWidth={1.75} />
             {title}
-          </h3>
+          </h2>
           {subtitle && <p className="text-xs text-ink-muted mt-0.5">{subtitle}</p>}
         </div>
 

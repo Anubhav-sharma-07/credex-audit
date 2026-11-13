@@ -112,6 +112,39 @@ export default function SubscriptionsClient({
 
   const isReadOnly = userRole === "viewer";
 
+  // Single subscription optimistic archive with 6s undo
+  function handleArchiveSingle(subId: string) {
+    if (isReadOnly) return;
+    const sub = data.find((s) => s.id === subId);
+    if (!sub) return;
+    archivedBackupRef.current = data;
+
+    setData((prev) => prev.filter((s) => s.id !== subId));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(subId);
+      return next;
+    });
+
+    setUndoToast({
+      message: `${sub.vendorName} archived.`,
+      actionIds: [subId],
+    });
+
+    if (pendingArchiveTimeoutRef.current) {
+      clearTimeout(pendingArchiveTimeoutRef.current);
+    }
+
+    pendingArchiveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await bulkArchiveSubscriptions(workspaceId, [subId]);
+      } catch (err) {
+        console.error("Archive commit error:", err);
+      }
+      setUndoToast(null);
+    }, 6000);
+  }
+
   // Optimistic Archive with Undo capability
   function handleBulkArchive() {
     if (isReadOnly || selectedIds.size === 0) return;
@@ -165,7 +198,7 @@ export default function SubscriptionsClient({
       {
         id: "select",
         header: () =>
-          isReadOnly ? null : (
+          isReadOnly ? <span className="sr-only">Select</span> : (
             <button
               onClick={handleSelectAll}
               className="p-1 min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
@@ -287,7 +320,7 @@ export default function SubscriptionsClient({
       },
       {
         id: "actions",
-        header: "",
+        header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) =>
           isReadOnly ? null : (
             <button
@@ -467,7 +500,7 @@ export default function SubscriptionsClient({
                   {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id} className="border-b border-border bg-canvas-subtle">
                       {headerGroup.headers.map((header) => (
-                        <th key={header.id} className="p-3 text-[11px] font-semibold text-ink-muted">
+                        <th key={header.id} scope="col" className="p-3 text-[11px] font-semibold text-ink-muted">
                           {header.isPlaceholder
                             ? null
                             : typeof header.column.columnDef.header === "function"
@@ -524,16 +557,25 @@ export default function SubscriptionsClient({
                       </div>
 
                       {!isReadOnly && (
-                        <button
-                          onClick={() => {
-                            setEditingSub(sub);
-                            setIsSheetOpen(true);
-                          }}
-                          className="p-2 text-ink-muted hover:text-ink rounded-xs border border-border min-h-[44px] min-w-[44px] flex items-center justify-center"
-                          aria-label={`Edit ${sub.vendorName}`}
-                        >
-                          <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setEditingSub(sub);
+                              setIsSheetOpen(true);
+                            }}
+                            className="p-2 text-ink-muted hover:text-ink rounded-xs border border-border min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                            aria-label={`Edit ${sub.vendorName}`}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                          </button>
+                          <button
+                            onClick={() => handleArchiveSingle(sub.id)}
+                            className="p-2 text-ink-muted hover:text-danger rounded-xs border border-border min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                            aria-label={`Archive ${sub.vendorName}`}
+                          >
+                            <Archive className="w-3.5 h-3.5" strokeWidth={1.75} />
+                          </button>
+                        </div>
                       )}
                     </div>
 

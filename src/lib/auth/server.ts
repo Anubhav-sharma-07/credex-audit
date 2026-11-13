@@ -60,6 +60,20 @@ export async function getSessionUser(): Promise<AuthUser | null> {
   if (testSession !== undefined) {
     return testSession ? testSession.user : null;
   }
+  if (process.env.PLAYWRIGHT_TEST === "true") {
+    try {
+      const cookieStore = await cookies();
+      if (cookieStore.get("spendlens_e2e_auth")?.value === "e2e_authenticated_owner") {
+        return {
+          id: "usr_playwright_test",
+          email: "qa@spendlens.demo",
+          role: "authenticated",
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
   if (process.env.NODE_ENV === "test") {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!url || url.includes("placeholder")) {
@@ -101,6 +115,20 @@ export async function requireWorkspaceMember(
       throw new Error(`Forbidden: Role '${testSession.role}' lacks permission for this action.`);
     }
     return { user: testSession.user, role: testSession.role };
+  }
+
+  if (process.env.PLAYWRIGHT_TEST === "true") {
+    try {
+      const cookieStore = await cookies();
+      if (cookieStore.get("spendlens_e2e_auth")?.value === "e2e_authenticated_owner") {
+        return {
+          user: { id: "usr_playwright_test", email: "qa@spendlens.demo", role: "authenticated" },
+          role: "owner",
+        };
+      }
+    } catch {
+      // ignore
+    }
   }
 
   if (process.env.NODE_ENV === "test") {

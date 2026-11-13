@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { AuditResult } from "@/types";
 import { PLAN_LABELS, TOOL_LABELS } from "@/lib/pricing";
 import LeadCapture from "./LeadCapture";
@@ -10,7 +10,12 @@ import {
   ShieldCheck,
   RefreshCw,
   FolderPlus,
+  Share2,
+  Check,
+  ExternalLink,
+  AlertCircle,
 } from "lucide-react";
+import Link from "next/link";
 
 function formatUsd(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -37,13 +42,13 @@ function toolsPayload(result: AuditResult) {
 export default function AuditResults({ result, onStartOver }: AuditResultsProps) {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [auditId, setAuditId] = useState<string | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [auditLoading, setAuditLoading] = useState(true);
   const [persistError, setPersistError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
+  const executePersist = useCallback(async () => {
     const tools = toolsPayload(result);
     const savingsBody = {
       teamSize: result.teamSize,
@@ -54,74 +59,86 @@ export default function AuditResults({ result, onStartOver }: AuditResultsProps)
       tools,
     };
 
-    async function run() {
-      setSummaryLoading(true);
-      setAuditLoading(true);
-      setPersistError(null);
-      setAiSummary(null);
-      setAuditId(null);
+    setSummaryLoading(true);
+    setAuditLoading(true);
+    setPersistError(null);
+    setAiSummary(null);
+    setAuditId(null);
+    setShareToken(null);
 
-      let summaryText = "";
+    let summaryText = "";
 
-      try {
-        const summaryRes = await fetch("/api/summary", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(savingsBody),
-        });
-        const summaryJson = (await summaryRes.json()) as { summary?: string };
-        summaryText = summaryJson.summary ?? "";
-      } catch {
-        summaryText =
-          "Your deterministic audit is complete. Review recommendations below for ways to eliminate seat overlaps and optimize commitment terms.";
-      }
-
-      if (cancelled) return;
-      setAiSummary(summaryText);
-      setSummaryLoading(false);
-
-      try {
-        const auditRes = await fetch("/api/audit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...savingsBody,
-            aiSummary: summaryText,
-          }),
-        });
-
-        if (!auditRes.ok) {
-          throw new Error("persist_failed");
-        }
-
-        const auditJson = (await auditRes.json()) as { id?: string; error?: string };
-        if (cancelled) return;
-
-        if (auditJson.id) {
-          setAuditId(auditJson.id);
-        } else {
-          setPersistError("Unable to persist audit session.");
-        }
-      } catch {
-        if (!cancelled) {
-          setPersistError("Unable to persist audit session.");
-        }
-      } finally {
-        if (!cancelled) {
-          setAuditLoading(false);
-        }
-      }
+    try {
+      const summaryRes = await fetch("/api/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(savingsBody),
+      });
+      const summaryJson = (await summaryRes.json()) as { summary?: string };
+      summaryText = summaryJson.summary ?? "";
+    } catch {
+      summaryText =
+        "Your audit is complete. Review recommendations below for ways to eliminate seat overlaps and optimize commitment terms.";
     }
 
-    run();
-    return () => {
-      cancelled = true;
-    };
+    setAiSummary(summaryText);
+    setSummaryLoading(false);
+
+    try {
+      const auditRes = await fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...savingsBody,
+          aiSummary: summaryText,
+        }),
+      });
+
+      if (!auditRes.ok) {
+        throw new Error("persist_failed");
+      }
+
+      const auditJson = (await auditRes.json()) as {
+        id?: string;
+        shareToken?: string;
+        token?: string;
+        error?: string;
+      };
+
+      if (auditJson.id) {
+        setAuditId(auditJson.id);
+        setShareToken(auditJson.shareToken || auditJson.token || auditJson.id);
+      } else {
+        setPersistError("Unable to persist audit snapshot. You can still review findings and retry.");
+      }
+    } catch {
+      setPersistError("Network error persisting audit record. Findings remain visible below.");
+    } finally {
+      setAuditLoading(false);
+    }
   }, [result]);
+
+  useEffect(() => {
+    executePersist();
+  }, [executePersist]);
+
+  function handleCopyShareLink() {
+    const token = shareToken || auditId;
+    if (!token) return;
+    const url = `${window.location.origin}/results/${token}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
+  const activeShareUrl =
+    typeof window !== "undefined" && (shareToken || auditId)
+      ? `${window.location.origin}/results/${shareToken || auditId}`
+      : "";
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* 1) Hero savings: Calm, institutional banner */}
+      {/* 1) Hero savings: Calm, high-contrast banner */}
       <div className="rounded-sm border border-savings-border bg-savings-surface p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -150,7 +167,63 @@ export default function AuditResults({ result, onStartOver }: AuditResultsProps)
         </div>
       </div>
 
-      {/* 2) Structured Findings Summary */}
+      {/* 2) Shareable Audit Link & Social Card Preview */}
+      {(shareToken || auditId) && (
+        <div className="rounded-sm border border-border bg-surface p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-action-text" strokeWidth={1.75} />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-ink">
+                Shareable Audit Snapshot
+              </h2>
+            </div>
+            <span className="text-[10px] font-mono text-ink-muted bg-canvas-subtle border border-border px-1.5 py-0.2 rounded-xs">
+              Token: {String(shareToken || auditId).slice(0, 8)}
+            </span>
+          </div>
+
+          <p className="text-xs text-ink-muted">
+            Anyone with this unique link can view this audit with database-verified figures.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={activeShareUrl}
+              className="flex-1 px-3 py-1.5 text-xs bg-canvas border border-border rounded-xs font-mono text-ink-muted select-all min-h-[40px]"
+              aria-label="Shareable audit URL"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyShareLink}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-surface hover:bg-canvas-subtle border border-border text-xs font-semibold text-ink rounded-xs transition-standard min-h-[40px] cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-savings" strokeWidth={2} />
+                    <span className="text-savings">Copied</span>
+                  </>
+                ) : (
+                  <span>Copy Link</span>
+                )}
+              </button>
+              <Link
+                href={`/results/${shareToken || auditId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-canvas-subtle hover:bg-canvas border border-border text-xs font-semibold text-ink rounded-xs transition-standard min-h-[40px]"
+              >
+                <span>View</span>
+                <ExternalLink className="w-3 h-3 text-ink-muted" strokeWidth={1.75} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3) Structured Findings Summary */}
       <div className="rounded-sm border border-border bg-surface p-6 shadow-sm space-y-2">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-ink-muted" strokeWidth={1.75} />
@@ -168,12 +241,12 @@ export default function AuditResults({ result, onStartOver }: AuditResultsProps)
         ) : (
           <p className="text-xs text-ink-muted leading-relaxed pt-1">
             {aiSummary ??
-              "Deterministic rules have verified seat counts and pricing against current vendor lists. Review recommendations below."}
+              "Automated calculation rules have verified seat counts and pricing against current vendor lists. Review recommendations below."}
           </p>
         )}
       </div>
 
-      {/* 3) Per-tool cards */}
+      {/* 4) Per-tool cards */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-ink">Recommendations by Tool</h2>
@@ -231,7 +304,7 @@ export default function AuditResults({ result, onStartOver }: AuditResultsProps)
         </ul>
       </div>
 
-      {/* 4) Save this to a workspace (Conversion CTA) */}
+      {/* 5) Save this to a workspace (Conversion CTA) */}
       <div className="rounded-sm border border-border bg-surface p-5 shadow-sm space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1">
@@ -252,6 +325,7 @@ export default function AuditResults({ result, onStartOver }: AuditResultsProps)
                   "spendlens_pending_audit",
                   JSON.stringify({
                     auditId,
+                    shareToken,
                     teamSize: result.teamSize,
                     useCase: result.useCase,
                     toolResults: result.toolResults,
@@ -271,25 +345,43 @@ export default function AuditResults({ result, onStartOver }: AuditResultsProps)
         </div>
       </div>
 
-      {/* 5) Email report capture */}
+      {/* 6) Email report capture & Skeleton/Error States */}
       {auditLoading && (
-        <div className="rounded-sm border border-border bg-surface p-4 text-center">
-          <p className="text-xs text-ink-muted">Finalizing audit snapshot...</p>
+        <div className="rounded-sm border border-border bg-surface p-5 text-center space-y-2">
+          <div className="h-4 w-48 bg-canvas-subtle animate-pulse rounded-xs mx-auto" />
+          <p className="text-xs text-ink-muted">Generating cryptographic snapshot and rate verification…</p>
         </div>
       )}
+
       {persistError && !auditLoading && (
-        <p className="text-center text-xs text-danger">{persistError}</p>
+        <div
+          role="alert"
+          className="p-4 bg-warning-surface border border-warning-border rounded-xs text-warning text-xs flex items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            <span>{persistError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={executePersist}
+            className="px-2.5 py-1 text-xs font-semibold bg-surface border border-warning-border rounded-xs hover:bg-canvas text-ink transition-standard min-h-[32px] cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
       )}
+
       {!auditLoading && auditId !== null && (
         <LeadCapture auditId={auditId} totalMonthlySavings={result.totalMonthlySavings} />
       )}
 
-      {/* 6) Start over button */}
+      {/* 7) Start over button */}
       <div className="flex justify-center pt-2 pb-8">
         <button
           type="button"
           onClick={onStartOver}
-          className="inline-flex items-center gap-2 rounded-xs border border-border bg-surface px-4 py-2 text-xs font-semibold text-ink-muted hover:text-ink hover:bg-canvas-subtle transition-standard min-h-[44px]"
+          className="inline-flex items-center gap-2 rounded-xs border border-border bg-surface px-4 py-2 text-xs font-semibold text-ink-muted hover:text-ink hover:bg-canvas-subtle transition-standard min-h-[44px] cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
           <span>Start another audit</span>

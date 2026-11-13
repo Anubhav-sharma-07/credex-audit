@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser, getUserWorkspace } from "@/lib/auth/server";
 import WorkspaceSidebar from "@/components/workspace/Sidebar";
 import CommandPalette from "@/components/workspace/CommandPalette";
+import KeyboardShortcutsModal from "@/components/workspace/KeyboardShortcutsModal";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function WorkspaceLayout({
   const userRole = userWs?.role || "owner";
 
   return (
-    <div className="flex min-h-screen bg-canvas text-ink antialiased">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-canvas text-ink antialiased">
       {/* Accessible Skip Link for Screen Readers & Keyboard Operability */}
       <a
         href="#main-content"
@@ -29,10 +30,11 @@ export default async function WorkspaceLayout({
         Skip to main content
       </a>
 
-      {/* Global Command Palette */}
+      {/* Global Command Palette & Keyboard Shortcuts Modal */}
       <CommandPalette />
+      <KeyboardShortcutsModal />
 
-      {/* Primary Sidebar */}
+      {/* Primary Sidebar & Mobile Top Bar / Drawer */}
       <WorkspaceSidebar
         workspaceName={workspaceName}
         userRole={userRole}

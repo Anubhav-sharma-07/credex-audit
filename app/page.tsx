@@ -28,7 +28,7 @@ export default function LandingPage() {
         Skip to main content
       </a>
 
-      {/* Top Institutional Header */}
+      {/* Top Header */}
       <header className="border-b border-border bg-surface sticky top-0 z-40 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between h-14">
           <div className="flex items-center gap-6">
@@ -92,11 +92,11 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-ink font-serif leading-[1.15]">
-            Engineering teams waste 20% to 35% of their AI tool budget on duplicate seats and unreviewed commitments.
+            Find unused seats, overlapping AI assistants, and unreviewed commitments before they auto-renew.
           </h1>
 
           <p className="text-sm sm:text-base text-ink-muted leading-relaxed max-w-2xl">
-            Cursor, GitHub Copilot, Windsurf, Claude Team, and OpenAI subscriptions accumulate across engineering departments without centralized oversight. SpendLens audits provisioned seats against active team headcount and published vendor rate cards in 2 minutes.
+            According to Gartner Software Spend Benchmarks, engineering teams waste 20% to 35% of developer tool budgets on duplicate licenses and unreviewed auto-renewals. SpendLens audits provisioned seats against active team headcount and published vendor rate cards in 2 minutes.
           </p>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
@@ -120,7 +120,7 @@ export default function LandingPage() {
               <CheckCircle2 className="w-3.5 h-3.5 text-savings" strokeWidth={1.75} /> No credit card required
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-savings" strokeWidth={1.75} /> Deterministic rule engine
+              <CheckCircle2 className="w-3.5 h-3.5 text-savings" strokeWidth={1.75} /> Automated rule engine
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-savings" strokeWidth={1.75} /> Zero credentials needed
@@ -143,8 +143,8 @@ export default function LandingPage() {
                   app.spendlens.internal / overview
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-savings bg-savings-surface border border-savings-border px-2 py-0.5 rounded-xs">
-                Active Tenant: Acme Engineering ($3,840/mo)
+              <span className="text-[10px] font-mono text-ink-muted bg-canvas-subtle border border-border px-2 py-0.5 rounded-xs">
+                Illustrative Preview • Sample 25-person team ($3,840/mo)
               </span>
             </div>
 
@@ -219,8 +219,8 @@ export default function LandingPage() {
                 {/* Evidence findings sample */}
                 <div className="p-4 bg-surface border border-border rounded-xs space-y-3">
                   <div className="flex items-center justify-between border-b border-border pb-2">
-                    <span className="text-xs font-bold text-ink">Catalog-Verified Savings Findings</span>
-                    <span className="text-[10px] uppercase font-semibold text-savings">Deterministic Rules</span>
+                    <span className="text-xs font-bold text-ink">Actionable Savings Opportunities</span>
+                    <span className="text-[10px] uppercase font-semibold text-savings">Automated Rules</span>
                   </div>
                   <div className="space-y-2 text-xs">
                     <div className="p-2.5 bg-canvas rounded-xs border border-border-subtle flex items-start justify-between">
@@ -257,7 +257,7 @@ export default function LandingPage() {
         <section id="cost-drivers" className="max-w-4xl mx-auto space-y-8">
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-action-text">
-              Institutional Spend Diagnostic
+              Cost Drivers & Waste Analysis
             </h2>
             <h3 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight font-serif mt-1">
               Where AI tool budgets bleed capital
@@ -300,14 +300,14 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Section 4: Architecture & Deterministic Engine */}
+        {/* Section 4: Architecture & Calculation Engine */}
         <section id="how-it-works" className="max-w-4xl mx-auto space-y-8">
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-action-text">
               Architecture & Trust
             </h2>
             <h3 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight font-serif mt-1">
-              Pure, deterministic rules. Never LLM hallucinations.
+              Auditable calculation rules. No fabricated numbers.
             </h3>
             <p className="text-xs sm:text-sm text-ink-muted mt-1 max-w-xl">
               Financial decisions require mathematical certainty. SpendLens separates rule evaluation from natural language reporting.
@@ -318,7 +318,7 @@ export default function LandingPage() {
             <div className="p-5 bg-surface border border-border rounded-sm shadow-xs space-y-2">
               <div className="flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-ink" strokeWidth={1.75} />
-                <h4 className="text-sm font-bold text-ink">Deterministic Rules Engine</h4>
+                <h4 className="text-sm font-bold text-ink">Automated Calculation Engine</h4>
               </div>
               <p className="text-xs text-ink-muted leading-relaxed">
                 Rules execute as pure, idempotent TypeScript functions. Savings calculations are verified against exact vendor pricing catalogs with recorded timestamps. Resolvers prevent double-counting across overlapping tools.
@@ -331,7 +331,7 @@ export default function LandingPage() {
                 <h4 className="text-sm font-bold text-ink">Read-Only Structured AI Layer</h4>
               </div>
               <p className="text-xs text-ink-muted leading-relaxed">
-                The AI layer never receives raw invoices, emails, or free-text inputs. It receives strictly typed finding IDs and figures. Post-execution checks reject any number not produced by the deterministic engine.
+                The AI layer never receives raw invoices, emails, or free-text inputs. It receives strictly typed finding IDs and figures. Post-execution checks reject any number not produced by the core calculation engine.
               </p>
             </div>
           </div>
@@ -366,7 +366,7 @@ export default function LandingPage() {
                 <ul className="text-xs text-ink-muted space-y-2 pt-2 border-t border-border-subtle" role="list">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-savings shrink-0" strokeWidth={1.75} />
-                    <span>Deterministic rule evaluation</span>
+                    <span>Automated audit evaluation</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-savings shrink-0" strokeWidth={1.75} />
@@ -471,7 +471,7 @@ export default function LandingPage() {
         <section id="security" className="max-w-4xl mx-auto space-y-6">
           <div className="border-b border-border pb-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-action-text">
-              Institutional Privacy Architecture
+              Enterprise Privacy & Data Isolation
             </h2>
             <h3 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight font-serif mt-1">
               Security claims we actually enforce
@@ -580,7 +580,7 @@ export default function LandingPage() {
             Audit your team&apos;s AI spend in 2 minutes
           </h2>
           <p className="text-xs sm:text-sm text-ink-muted max-w-md mx-auto">
-            Free, deterministic, and no credit card required. Receive itemized findings across Cursor, Copilot, Windsurf, Claude, and OpenAI.
+            Free, automated calculation rules, and no credit card required. Receive itemized findings across Cursor, Copilot, Windsurf, Claude, and OpenAI.
           </p>
           <div className="pt-2 flex justify-center gap-3">
             <Link
@@ -607,7 +607,7 @@ export default function LandingPage() {
               SL
             </div>
             <span className="font-bold text-ink">SpendLens</span>
-            <span>• Institutional Software Spend Intelligence</span>
+            <span>• Engineering Software Spend Intelligence</span>
           </div>
 
           <div className="flex items-center gap-6">

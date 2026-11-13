@@ -41,14 +41,14 @@ export default function AdminAuditLogsClient({ initialLogs }: AdminAuditLogsClie
           <div className="flex items-center gap-2">
             <Link
               href="/admin/team"
-              className="text-xs text-ink-muted hover:text-ink inline-flex items-center gap-1"
+              className="text-xs text-ink-muted hover:text-ink inline-flex items-center gap-1 min-h-[36px]"
             >
               <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span>Admin</span>
             </Link>
             <span className="text-xs text-ink-subtle">•</span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-action-text bg-canvas-subtle border border-border px-2 py-0.5 rounded-xs">
-              Immutable Security Ledger
+              Security Ledger
             </span>
           </div>
           <h1 className="text-xl font-bold text-ink tracking-tight font-serif mt-1">
@@ -86,16 +86,17 @@ export default function AdminAuditLogsClient({ initialLogs }: AdminAuditLogsClie
         </div>
       ) : (
         <div className="bg-surface border border-border rounded-sm shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-canvas-subtle text-ink-muted font-semibold border-b border-border">
                 <tr>
-                  <th className="py-2.5 px-3 text-[11px]">Timestamp</th>
-                  <th className="py-2.5 px-3 text-[11px]">Action</th>
-                  <th className="py-2.5 px-3 text-[11px]">Actor</th>
-                  <th className="py-2.5 px-3 text-[11px]">Target ID</th>
-                  <th className="py-2.5 px-3 text-[11px]">Origin IP</th>
-                  <th className="py-2.5 px-3 text-[11px]">Metadata Details</th>
+                  <th scope="col" className="py-2.5 px-3 text-[11px]">Timestamp</th>
+                  <th scope="col" className="py-2.5 px-3 text-[11px]">Action</th>
+                  <th scope="col" className="py-2.5 px-3 text-[11px]">Actor</th>
+                  <th scope="col" className="py-2.5 px-3 text-[11px]">Target ID</th>
+                  <th scope="col" className="py-2.5 px-3 text-[11px]">Origin IP</th>
+                  <th scope="col" className="py-2.5 px-3 text-[11px]">Metadata Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
@@ -125,6 +126,41 @@ export default function AdminAuditLogsClient({ initialLogs }: AdminAuditLogsClie
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card List View (< md) */}
+          <div className="md:hidden divide-y divide-border-subtle" role="list">
+            {filteredLogs.map((log) => (
+              <div key={log.id} className="p-4 space-y-2 text-xs" role="listitem">
+                <div className="flex items-start justify-between gap-2">
+                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-xs border ${getActionBadge(log.action)}`}>
+                    {log.action.replace(/_/g, " ")}
+                  </span>
+                  <span className="text-[11px] font-mono text-ink-muted">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-ink-muted text-[11px]">Actor:</span>
+                    <span className="font-semibold text-ink">{log.actorEmail}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-ink-muted text-[11px]">Target:</span>
+                    <span className="font-mono text-ink-subtle text-[11px]">{log.targetId || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-ink-muted text-[11px]">IP:</span>
+                    <span className="font-mono text-ink-muted text-[11px]">{log.ipAddress}</span>
+                  </div>
+                </div>
+                {log.metadata && Object.keys(log.metadata).length > 0 && (
+                  <div className="bg-canvas p-2 rounded-xs border border-border-subtle font-mono text-[10px] text-ink-subtle truncate">
+                    {JSON.stringify(log.metadata)}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

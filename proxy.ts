@@ -119,7 +119,14 @@ export async function proxy(request: NextRequest) {
       },
     });
 
-    const user = await getSupabaseUser(request, candidateResponse);
+    const isE2eUser =
+      process.env.PLAYWRIGHT_TEST === "true" &&
+      request.cookies.get("spendlens_e2e_auth")?.value === "e2e_authenticated_owner";
+
+    const user = isE2eUser
+      ? { id: "usr_playwright_test", email: "qa@spendlens.demo", role: "authenticated" }
+      : await getSupabaseUser(request, candidateResponse);
+
     if (!user) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);

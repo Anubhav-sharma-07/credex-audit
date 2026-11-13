@@ -1,5 +1,8 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
+import { getAuditRepository } from "@/modules/audit/repository";
+import { createClient } from "@supabase/supabase-js";
+import { formatCurrency } from "@/lib/formatters";
 
 // No `runtime = "edge"`: the default Node.js runtime has a much larger size limit,
 // which fixes the "Edge Function api/og is 1.05 MB" deploy error.
@@ -19,9 +22,45 @@ function teamSize(value: string | null): string {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
-    const spend = money(searchParams.get("spend"));
-    const savings = money(searchParams.get("savings"));
-    const team = teamSize(searchParams.get("team"));
+    const token = searchParams.get("token") || searchParams.get("id");
+
+    let spend = PLACEHOLDER;
+    let savings = PLACEHOLDER;
+    let team = PLACEHOLDER;
+
+    // 1. Authoritative lookup from database using share_token / audit id
+    if (token) {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        let supabaseClient = undefined;
+        if (url && key && !url.includes("placeholder")) {
+          if (typeof globalThis.WebSocket === "undefined") {
+            globalThis.WebSocket = class DummyWebSocket {} as unknown as typeof WebSocket;
+          }
+          supabaseClient = createClient(url, key, { auth: { persistSession: false } });
+        }
+        const repo = getAuditRepository(supabaseClient);
+        let audit = await repo.getByShareToken(token);
+        if (!audit) {
+          audit = await repo.getById(token);
+        }
+        if (audit) {
+          spend = formatCurrency(Math.round(audit.totalMonthlySpend * 100), "USD");
+          savings = formatCurrency(Math.round(audit.totalMonthlySavings * 100), "USD");
+          team = String(audit.teamSize);
+        }
+      } catch (err) {
+        console.error("OG authoritative database lookup failed:", err);
+      }
+    }
+
+    // 2. Fallback to sanitized parameters only if no token parameter was given
+    if (spend === PLACEHOLDER && !token) {
+      spend = money(searchParams.get("spend"));
+      savings = money(searchParams.get("savings"));
+      team = teamSize(searchParams.get("team"));
+    }
 
     return new ImageResponse(
       (
@@ -139,8 +178,8 @@ export async function GET(request: NextRequest) {
       {
         width: 1200,
         height: 630,
-        // The image is fully determined by the URL, so it can be cached for a year.
-        headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+        // Cached appropriately
+        headers: { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
       }
     );
   } catch {

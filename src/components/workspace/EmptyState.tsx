@@ -48,7 +48,7 @@ export default function EmptyState({
       </div>
 
       <div className="space-y-1">
-        <h3 className="text-sm font-bold text-ink">{title}</h3>
+        <h2 className="text-sm font-bold text-ink">{title}</h2>
         <p className="text-xs text-ink-muted leading-relaxed max-w-sm mx-auto">{description}</p>
       </div>
 
